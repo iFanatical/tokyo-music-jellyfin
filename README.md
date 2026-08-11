@@ -1,5 +1,7 @@
 # Tokyo Music
 
+<img width="1878" height="901" alt="image" src="https://github.com/user-attachments/assets/5e6097e9-4cf1-4f17-85b0-4590f93c3fda" />
+
 A music-only web client for Jellyfin. No video, no TV, no "Continue Watching" —
 just albums, artists, songs, playlists and a player, in the Tokyo Night
 (night variant) palette.
