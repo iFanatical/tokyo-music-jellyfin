@@ -1,0 +1,28 @@
+# Python bytecode from serve.py
+__pycache__/
+*.py[cod]
+
+# Logs
+*.log
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Only here if tooling is added later; the app itself has no dependencies
+node_modules/
+package-lock.json
+
+# Local overrides
+.env
+.env.local
+
+# Local deployment settings (hostnames, usernames)
+deploy/config.env

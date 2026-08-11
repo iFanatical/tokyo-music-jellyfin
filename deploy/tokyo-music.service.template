@@ -1,0 +1,41 @@
+# Template. server-setup.sh fills in the double-underscore tokens below and
+# installs the result to /etc/systemd/system/tokyo-music.service. Do not install
+# this file directly: systemd has no variable expansion for User= or paths.
+
+[Unit]
+Description=Tokyo Music — music-only web client for Jellyfin
+Documentation=file:__APP_DIR__/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__RUN_USER__
+Group=__RUN_GROUP__
+WorkingDirectory=__APP_DIR__
+ExecStart=__PYTHON__ __APP_DIR__/serve.py --bind __BIND__ --port __PORT__ --root __APP_DIR__
+Restart=on-failure
+RestartSec=3
+
+# Serving static files needs almost nothing; lock the rest down.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tokyo-music
+
+[Install]
+WantedBy=multi-user.target

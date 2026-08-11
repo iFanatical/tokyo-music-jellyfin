@@ -1,0 +1,91 @@
+/* Tokyo Night (night variant) — palette from folke/tokyonight.nvim.
+   Deliberately NOT the storm variant: bg is #1a1b26, not #24283b. */
+
+:root {
+  /* Raw palette */
+  --tn-bg: #1a1b26;
+  --tn-bg-dark: #16161e;
+  --tn-bg-darker: #0c0e14;
+  --tn-black: #15161e;
+  --tn-bg-highlight: #292e42;
+  --tn-bg-visual: #283457;
+  --tn-fg-gutter: #3b4261;
+  --tn-terminal-black: #414868;
+  --tn-dark3: #545c7e;
+  --tn-comment: #565f89;
+  --tn-dark5: #737aa2;
+  --tn-fg-dark: #a9b1d6;
+  --tn-fg: #c0caf5;
+
+  --tn-blue: #7aa2f7;
+  --tn-blue0: #3d59a1;
+  --tn-blue1: #2ac3de;
+  --tn-blue2: #0db9d7;
+  --tn-blue5: #89ddff;
+  --tn-blue6: #b4f9f8;
+  --tn-blue7: #394b70;
+  --tn-cyan: #7dcfff;
+  --tn-magenta: #bb9af7;
+  --tn-magenta2: #ff007c;
+  --tn-purple: #9d7cd8;
+  --tn-orange: #ff9e64;
+  --tn-yellow: #e0af68;
+  --tn-green: #9ece6a;
+  --tn-green1: #73daca;
+  --tn-green2: #41a6b5;
+  --tn-teal: #1abc9c;
+  --tn-red: #f7768e;
+  --tn-red1: #db4b4b;
+
+  /* Semantic surfaces */
+  --surface-0: var(--tn-bg-darker);
+  --surface-1: var(--tn-bg);
+  --surface-2: var(--tn-bg-dark);
+  --surface-3: var(--tn-bg-highlight);
+  --surface-hover: #232433;
+  --surface-active: var(--tn-bg-visual);
+
+  /* Text */
+  --text: var(--tn-fg);
+  --text-dim: var(--tn-fg-dark);
+  --text-muted: var(--tn-comment);
+  --text-faint: var(--tn-dark3);
+
+  /* Accents */
+  --accent: var(--tn-blue);
+  --accent-hi: var(--tn-blue5);
+  --accent-lo: var(--tn-blue0);
+  --accent-2: var(--tn-magenta);
+  --accent-3: var(--tn-cyan);
+  --good: var(--tn-green);
+  --warn: var(--tn-yellow);
+  --bad: var(--tn-red);
+  --fav: var(--tn-red);
+
+  /* Lines */
+  --border: #232433;
+  --border-strong: var(--tn-fg-gutter);
+
+  /* Geometry */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-full: 999px;
+
+  --sidebar-w: 232px;
+  --player-h: 92px;
+  --topbar-h: 60px;
+  --queue-w: 340px;
+
+  /* Type */
+  --font: "Inter", "SF Pro Display", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo,
+    Consolas, monospace;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.55);
+
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
