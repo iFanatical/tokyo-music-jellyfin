@@ -21,6 +21,63 @@ function deviceId() {
   return id;
 }
 
+/* ------------------------------------------------------------------
+   Duplicate artist records
+   ------------------------------------------------------------------
+   Jellyfin can end up holding more than one artist record for the same
+   artist, differing only by letter case, a typographic vs ASCII hyphen
+   ("blink‐182" vs "blink-182"), "&" vs "and", or an exotic space. Its own
+   artist lookup is case-insensitive, so both records resolve to the same
+   albums and tracks and neither is ever pruned — they just show up as two
+   cards. Usual causes are metadata providers writing their own spelling and
+   records left behind by an earlier library layout.
+
+   Fixing this server-side needs database surgery or a library rebuild, so
+   the client collapses them for display instead. This is lossless here:
+   grouped records return identical content.
+   ------------------------------------------------------------------ */
+
+const DASH_VARIANTS = /[‐‑‒–—―−]/g;
+
+/** Collation key for artist names. Deliberately conservative: it folds only
+    the differences observed to cause duplicates, and does not strip
+    punctuation or a leading "The", which would merge distinct artists. */
+export function artistKey(name) {
+  return String(name || "")
+    .normalize("NFKC")
+    .replace(DASH_VARIANTS, "-")
+    .replace(/&/g, "and")
+    .replace(/\s+/g, " ") // also folds U+3000 and other exotic spaces
+    .trim()
+    .toLowerCase();
+}
+
+/** A record under Jellyfin's own metadata folder is the leftover; one that
+    points at a media path is the record reflecting the library. */
+const isMetadataStub = (a) => /\/metadata\/(artists|people)\//.test(a?.Path || "");
+
+function artistScore(a) {
+  let score = 0;
+  if (a?.Path && !isMetadataStub(a)) score += 4;
+  if (a?.ImageTags?.Primary) score += 1;
+  return score;
+}
+
+/**
+ * Collapses duplicate artist records, keeping the best of each group.
+ * Server sort order is preserved. Returns { items, removed }.
+ */
+export function dedupeArtists(items) {
+  const best = new Map();
+  for (const a of items || []) {
+    const key = artistKey(a?.Name);
+    const current = best.get(key);
+    if (!current || artistScore(a) > artistScore(current)) best.set(key, a);
+  }
+  const kept = [...best.values()];
+  return { items: kept, removed: (items?.length || 0) - kept.length };
+}
+
 export class ApiError extends Error {
   constructor(message, status, url) {
     super(message);
@@ -306,7 +363,8 @@ class JellyfinApi {
       Limit: limit,
       SortBy: "SortName",
       SortOrder: sortOrder,
-      Fields: "PrimaryImageAspectRatio",
+      // Path is requested purely to identify duplicate records (see dedupeArtists).
+      Fields: "PrimaryImageAspectRatio,Path",
       ImageTypeLimit: 1,
       EnableImageTypes: "Primary",
       Recursive: true,
@@ -314,7 +372,16 @@ class JellyfinApi {
     if (searchTerm) params.searchTerm = searchTerm;
     if (this.musicParentId) params.ParentId = this.musicParentId;
     const data = await this.get("/Artists/AlbumArtists", params, signal);
-    return { items: data?.Items || [], total: data?.TotalRecordCount ?? 0 };
+    const raw = data?.Items || [];
+    const { items, removed } = dedupeArtists(raw);
+    // `fetched` is the server-side count; callers must page by it, not by
+    // items.length, or the start index drifts once duplicates are dropped.
+    return {
+      items,
+      total: data?.TotalRecordCount ?? items.length,
+      removed,
+      fetched: raw.length,
+    };
   }
 
   async genres(signal) {
@@ -462,7 +529,7 @@ class JellyfinApi {
       SortBy: "SortName",
       SortOrder: "Ascending",
       Limit: 200,
-      Fields: "PrimaryImageAspectRatio",
+      Fields: "PrimaryImageAspectRatio,Path",
       ImageTypeLimit: 1,
       EnableImageTypes: "Primary",
     };
@@ -489,9 +556,10 @@ class JellyfinApi {
     for (const a of viaArtists?.Items || []) byId.set(a.Id, a);
     for (const a of viaItems.items || []) if (!byId.has(a.Id)) byId.set(a.Id, a);
 
-    const items = [...byId.values()].sort((x, y) =>
+    const merged = [...byId.values()].sort((x, y) =>
       (x.Name || "").localeCompare(y.Name || "")
     );
+    const { items } = dedupeArtists(merged);
     return { items, total: items.length };
   }
 

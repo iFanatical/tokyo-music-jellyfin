@@ -171,6 +171,24 @@ reasons parts of the code look the way they do:
 - An image tag is only valid for the item it belongs to — pairing a track id
   with its album's image tag returns 404. Tracks without embedded art fall back
   to the album id *and* the album's tag together.
+- **Metadata providers fight your tags, and win at album level.** A default
+  music library fetches `MusicAlbum` and `MusicArtist` metadata from MusicBrainz
+  and TheAudioDB while `Audio` stays tags-only. The provider's spelling lands on
+  the album record and Jellyfin then creates a *second* artist for it — so
+  tracks tagged `blink-182` sat under an album credited to `blink‐182` with a
+  U+2010 typographic hyphen, and `Angels and Airwaves` gained an
+  `Angels & Airwaves` twin. Clearing the metadata fetchers for those two types
+  (leaving the image fetchers alone, so artwork still downloads) makes tags
+  authoritative and stops it recurring.
+- **Duplicate artist records cannot be pruned through the API.** Jellyfin's
+  artist lookup is case-insensitive, so a leftover record differing only by case
+  resolves to the same albums and never looks orphaned. Refreshes and scans
+  won't remove it and `DELETE /Items` refuses. The client therefore collapses
+  them for display — see `dedupeArtists` in `js/api.js`. It is lossless: grouped
+  records return identical content. The survivor is chosen by `Path`, since the
+  leftovers live under `/var/lib/jellyfin/metadata/artists/` while the record
+  reflecting the library points at a media path — which conveniently picks the
+  spelling your tags actually use.
 
 ---
 

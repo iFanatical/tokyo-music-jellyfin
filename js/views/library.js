@@ -1,6 +1,6 @@
 /* Library browse views: albums, artists, songs, genres, favorites. */
 
-import { api } from "./../api.js";
+import { api, artistKey } from "./../api.js";
 import { player } from "./../player.js";
 import { icons } from "./../icons.js";
 import {
@@ -169,16 +169,33 @@ export async function artistsView(container, params, signal) {
 
   const { sortOrder } = parseSort(sorter.value);
 
+  /* Duplicate artist records are collapsed by the API layer, but a pair can
+     straddle a page boundary, so track the keys already rendered too. */
+  const seenKeys = new Set();
+  let merged = 0;
+
   async function loadPage() {
-    const { items, total } = await api.artists(
+    const { items, total, removed, fetched } = await api.artists(
       { startIndex: offset, limit: PAGE_ARTISTS, sortOrder },
       signal
     );
     if (signal?.aborted) return false;
-    offset += items.length;
-    items.forEach((a) => g.append(artistCard(a)));
-    sub.textContent = fmtCount(total, "artist");
-    if (!items.length || offset >= total) return false;
+
+    offset += fetched; // page by the server count, not the deduped count
+    merged += removed;
+
+    for (const a of items) {
+      const key = artistKey(a.Name);
+      if (seenKeys.has(key)) {
+        merged++;
+        continue;
+      }
+      seenKeys.add(key);
+      g.append(artistCard(a));
+    }
+
+    sub.textContent = fmtCount(Math.max(0, total - merged), "artist");
+    if (!fetched || offset >= total) return false;
     return true;
   }
 
