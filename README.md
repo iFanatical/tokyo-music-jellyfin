@@ -99,6 +99,7 @@ proxy.
 | `js/router.js` | Hash routing with per-navigation `AbortController` |
 | `serve.py` | Static server |
 | `deploy/` | systemd unit template and install scripts |
+| `tools/` | tag maintenance script |
 
 Everything is audio-scoped at the API layer: queries are restricted to
 `MusicAlbum` / `MusicArtist` / `Audio` and to your music libraries, and
@@ -141,6 +142,65 @@ server transcode instead.
 
 Mouse wheel over the volume control adjusts it in 5% steps (hold `Shift` for 2%).
 Scrolling up while muted unmutes.
+
+---
+
+## Keeping tags clean (`tools/fix-artist-tags.py`)
+
+Most "Jellyfin split my artist" problems are a tagging convention, not a
+Jellyfin bug. Rippers commonly write several artists into one string:
+
+```
+ARTIST=Breaking Benjamin; Valora
+```
+
+Jellyfin does not split on `;`, `/` or `feat.`, so that whole string becomes
+its own artist. Every new combination adds another phantom entry, and a
+polluted `ALBUMARTIST` splits the album off from the rest of the discography.
+**Every fresh import brings the problem back**, so this needs to be part of
+the import routine rather than a one-off cleanup.
+
+```bash
+pip install mutagen                     # once, a venv is fine
+
+tools/fix-artist-tags.py /srv/music/library                    # dry run
+tools/fix-artist-tags.py /srv/music/library --apply     --canonical canonical.json --fix-encoding     --jellyfin-url http://<host>:8096 --token <api-key>
+```
+
+It is a dry run unless `--apply` is given, backs up every file it touches,
+writes an `undo.json`, and is idempotent.
+
+| Flag | Purpose |
+|---|---|
+| `--apply` | actually write; otherwise it only reports |
+| `--canonical FILE` | JSON map of `{"wrong name": "right name"}` for spellings you have settled on |
+| `--fix-encoding` | repair UTF-8 text that was decoded as CP1251 (`JГіnsi` → `Jónsi`) |
+| `--jellyfin-url` / `--token` | refresh the affected albums and rescan afterwards |
+| `--media-root` / `--server-root` | path translation when the library is mounted elsewhere |
+| `--refresh-only` | skip tag work; just make Jellyfin re-read a path |
+
+Deliberate limits, each learned the hard way:
+
+- **`&` and `,` are never split.** `Mumford & Sons` is one artist and no
+  heuristic can distinguish that from a collaboration. Handle those by hand.
+- **WMA is never split.** Multi-value ASF tags come back as a single value and
+  Jellyfin drops every artist but the first, which is worse than leaving it.
+  Move the featured artist into the track title instead.
+- **An empty `ALBUMARTIST` is left empty.** It usually means a compilation;
+  filling it in from one track's artist splits the album in two.
+- **Jellyfin needs telling.** A plain library scan will not overwrite metadata
+  it already holds. The affected albums need a refresh with
+  `replaceAllMetadata=true`, *then* a scan — and the refreshes are async, so
+  scanning too early silently does nothing. The tool sequences this for you.
+- **Loose files** sitting directly in an artist folder belong to an album record
+  with no directory, so the tool refreshes changed tracks individually as well.
+
+### Preventing it at source
+
+Better still, tag correctly on import. [MusicBrainz Picard](https://picard.musicbrainz.org/)
+writes proper multi-value artist tags, and [beets](https://beets.io/) has an
+`ftintitle` plugin that moves featured artists out of the artist field and into
+the title. Either avoids the problem entirely.
 
 ---
 
