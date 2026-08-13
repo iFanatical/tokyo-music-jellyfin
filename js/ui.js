@@ -17,6 +17,11 @@ import {
   displayName,
 } from "./util.js";
 
+/** Artists frequently have a Backdrop but no Primary; fall back rather than
+    render an empty placeholder. Logo is skipped: it is usually a wide
+    transparent image that crops badly into a circular card. */
+export const ARTIST_IMAGE_TYPES = ["Primary", "Backdrop"];
+
 /* ============================================================
    Lazy images
    ============================================================ */
@@ -46,12 +51,15 @@ const imgObserver = new IntersectionObserver(
 );
 
 /** Art tile with a placeholder that shows through until the image decodes. */
-export function artBox(item, { size = 300, cls = "", icon = "music" } = {}) {
+export function artBox(
+  item,
+  { size = 300, cls = "", icon = "music", types = ["Primary"] } = {}
+) {
   // The shared `art` class owns the placeholder/image stacking; the second
   // class carries the size and shape for each context.
   const box = el(`div.art.${cls || "card-art"}`);
   box.append(el("div.art-fallback", { html: icons[icon] }));
-  const url = api.imageUrl(item, { size });
+  const url = api.bestImageUrl(item, { size, types });
   if (url) {
     const img = el("img", {
       alt: "",
@@ -105,7 +113,7 @@ export function albumCard(album) {
 
 export function artistCard(artist) {
   const card = el("div.card.artist", { title: displayName(artist, "Unknown artist") }, [
-    artBox(artist, { size: 300, icon: "artist" }),
+    artBox(artist, { size: 300, icon: "artist", types: ARTIST_IMAGE_TYPES }),
     el("div.card-title", { text: displayName(artist, "Unknown artist") }),
     el("div.card-sub", { text: "Artist" }),
   ]);

@@ -180,6 +180,20 @@ reasons parts of the code look the way they do:
   `Angels & Airwaves` twin. Clearing the metadata fetchers for those two types
   (leaving the image fetchers alone, so artwork still downloads) makes tags
   authoritative and stops it recurring.
+- **Artists often have a Backdrop or Logo but no Primary image.** A card that
+  asks only for `Primary` then renders an empty placeholder even though Jellyfin
+  holds artwork. Two things help: an image-only refresh
+  (`metadataRefreshMode=None&imageRefreshMode=FullRefresh`) fetches missing art
+  *without* touching names, so it is safe even with the metadata fetchers off;
+  and `bestImageUrl` falls back through image types. Logo is skipped
+  deliberately — it is usually a wide transparent image that crops badly into a
+  circular card.
+- **Tags mangled by a bad decode can be repaired losslessly.** Text written as
+  UTF-8 but read as CP1251 shows up as Cyrillic soup (`JГіnsi` for `Jónsi`).
+  `s.encode("cp1251").decode("utf-8")` reverses it. Guard the repair by
+  requiring the result to contain no Cyrillic, so genuinely Cyrillic names are
+  left alone. Such names also block artwork lookup, since no provider can match
+  them.
 - **Duplicate artist records cannot be pruned through the API.** Jellyfin's
   artist lookup is case-insensitive, so a leftover record differing only by case
   resolves to the same albums and never looks orphaned. Refreshes and scans

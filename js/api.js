@@ -68,13 +68,32 @@ function artistScore(a) {
  * Server sort order is preserved. Returns { items, removed }.
  */
 export function dedupeArtists(items) {
-  const best = new Map();
+  const groups = new Map();
   for (const a of items || []) {
     const key = artistKey(a?.Name);
-    const current = best.get(key);
-    if (!current || artistScore(a) > artistScore(current)) best.set(key, a);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(a);
   }
-  const kept = [...best.values()];
+
+  const kept = [];
+  for (const group of groups.values()) {
+    const winner = group.reduce((a, b) => (artistScore(b) > artistScore(a) ? b : a));
+    // The survivor is picked for its name; artwork may live on a discarded
+    // sibling, so borrow it rather than render an empty placeholder.
+    if (!winner.ImageTags?.Primary) {
+      const withArt = group.find((a) => a !== winner && a.ImageTags?.Primary);
+      if (withArt) {
+        kept.push({
+          ...winner,
+          ImageItemId: withArt.Id,
+          ImageTags: withArt.ImageTags,
+          BackdropImageTags: withArt.BackdropImageTags,
+        });
+        continue;
+      }
+    }
+    kept.push(winner);
+  }
   return { items: kept, removed: (items?.length || 0) - kept.length };
 }
 
@@ -676,7 +695,9 @@ class JellyfinApi {
 
   imageUrl(item, { size = 300, type = "Primary" } = {}) {
     if (!item) return null;
-    const id = item.Id || item;
+    // ImageItemId lets a record borrow artwork from a merged duplicate; the
+    // tag is only valid against the item it came from.
+    const id = item.ImageItemId || item.Id || item;
     const sizing = { maxHeight: size, maxWidth: size, quality: 90 };
 
     // An image tag is only valid for the item it belongs to: pairing a track
@@ -694,6 +715,31 @@ class JellyfinApi {
         ...sizing,
         tag: item.AlbumPrimaryImageTag,
       });
+    }
+    return null;
+  }
+
+  /**
+   * First available image among `types`. Artists in particular often carry a
+   * Backdrop or Logo but no Primary, which would otherwise render as an empty
+   * placeholder even though Jellyfin has artwork for them.
+   */
+  bestImageUrl(item, { size = 300, types = ["Primary"] } = {}) {
+    if (!item) return null;
+    for (const type of types) {
+      if (type === "Backdrop") {
+        const tag = item.BackdropImageTags?.[0];
+        if (!tag) continue;
+        const id = item.ImageItemId || item.Id;
+        return this.url(`/Items/${id}/Images/Backdrop/0`, {
+          maxHeight: size,
+          maxWidth: size,
+          tag,
+          quality: 90,
+        });
+      }
+      const url = this.imageUrl(item, { size, type });
+      if (url) return url;
     }
     return null;
   }

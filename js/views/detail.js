@@ -6,6 +6,7 @@ import { icons } from "./../icons.js";
 import { navigate, routes, linkify } from "./../nav.js";
 import {
   artBox,
+  ARTIST_IMAGE_TYPES,
   albumCard,
   playlistCard,
   grid,
@@ -252,7 +253,7 @@ export async function artistView(container, params, signal) {
     page.append(
       el("div.detail-hero", {}, [
         heroBg(artist.Id),
-        artBox(artist, { size: 500, cls: "hero-art round", icon: "artist" }),
+        artBox(artist, { size: 500, cls: "hero-art round", icon: "artist", types: ARTIST_IMAGE_TYPES }),
         el("div.hero-meta", {}, [
           el("div.hero-kind", { text: "Artist" }),
           el("h1.hero-title", { text: displayName(artist, "Unknown artist") }),
