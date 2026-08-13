@@ -57,10 +57,11 @@ svg {
   flex: none;
 }
 
+/* Outlines follow the element's own border-radius, so this must not impose
+   one — doing so reshapes whatever receives focus. */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: var(--r-sm);
 }
 
 /* Scrollbars */
@@ -177,6 +178,17 @@ svg {
   transition: background 0.13s var(--ease), color 0.13s var(--ease);
   position: relative;
   white-space: nowrap;
+}
+
+/* Draw the focus ring inside these rows. They sit only 8px from the panel
+   edge and the active item's indicator bar overhangs to left: -8px, so an
+   outset ring collides with the bar and is clipped by the panel.
+   Firefox makes this visible on every click, since it treats a clicked link
+   as focus-visible where Chromium does not. */
+.nav-item:focus-visible,
+.sidebar-pl:focus-visible,
+.user-chip:focus-visible {
+  outline-offset: -2px;
 }
 
 .nav-icon {
