@@ -72,6 +72,7 @@ def die(msg: str) -> None:
 
 
 try:
+    import mutagen
     from mutagen.flac import FLAC
     from mutagen.id3 import ID3, TPE1, TPE2, TIT2, TALB, ID3NoHeaderError
     from mutagen.mp4 import MP4
@@ -147,7 +148,12 @@ class Track:
                 return (s("Author"), s("WM/AlbumArtist"),
                         (s("Title") or [None])[0], (s("WM/AlbumTitle") or [None])[0])
             if self.ext in ("ogg", "oga", "opus"):
-                t = self._tags = OggVorbis(self.path)
+                # An Ogg container may hold Opus, Vorbis or FLAC, and the
+                # extension does not reliably say which. Reading a .opus file
+                # as OggVorbis throws, so let mutagen sniff the actual codec.
+                t = self._tags = mutagen.File(self.path)
+                if t is None:
+                    raise ValueError("unrecognised Ogg codec")
                 return (list(t.get("artist", [])), list(t.get("albumartist", [])),
                         (t.get("title") or [None])[0], (t.get("album") or [None])[0])
         except Exception as exc:  # noqa: BLE001 - report and skip
@@ -157,7 +163,7 @@ class Track:
 
     def write(self, artists, albumartists, title=None, album=None):
         t = self._tags
-        if self.ext in ("flac", "ogg", "oga", "opus"):
+        if self.ext in ("flac", "ogg", "oga", "opus"):  # VorbisComment-style
             t["artist"] = artists
             if albumartists:
                 t["albumartist"] = albumartists
