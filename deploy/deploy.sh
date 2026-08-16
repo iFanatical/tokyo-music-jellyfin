@@ -43,9 +43,11 @@ if [[ ! -d $REMOTE_HOME ]]; then
   exit 1
 fi
 
-echo "Deploying Tokyo Music"
-echo "  from: $SRC"
-echo "    to: $DEST"
+# Do the work before printing anything. If stdout is a pipe that closes early
+# (`./deploy.sh | head`), SIGPIPE would otherwise kill the script part-way
+# through the copy while the banner had already claimed success — which is
+# exactly how a stale deploy once went unnoticed for two days.
+trap '' PIPE
 
 mkdir -p "$DEST"
 
@@ -68,8 +70,30 @@ fi
 
 chmod +x "$DEST/serve.py" "$DEST/deploy/"*.sh 2>/dev/null || true
 
+# Never claim success without checking. Compare every served file byte-wise;
+# a partial copy is worse than an obvious failure.
+mismatch=0
+checked=0
+while IFS= read -r rel; do
+  checked=$((checked + 1))
+  if ! cmp -s "$SRC/$rel" "$DEST/$rel"; then
+    echo "MISMATCH: $rel" >&2
+    mismatch=$((mismatch + 1))
+  fi
+done < <(cd "$SRC" && find index.html css js serve.py -type f 2>/dev/null)
+
+if (( mismatch > 0 )); then
+  echo >&2
+  echo "error: $mismatch of $checked file(s) did not copy correctly." >&2
+  echo "The deployment is INCOMPLETE — re-run this script." >&2
+  exit 1
+fi
+
+echo "Deploying Tokyo Music"
+echo "  from: $SRC"
+echo "    to: $DEST"
 echo
-echo "Files are in place at ~/tokyo-music on the server."
+echo "Verified $checked file(s) byte-for-byte. Files are in place at ~/tokyo-music."
 echo
 echo "If the service is already installed, restart it on the server with:"
 echo "    sudo systemctl restart tokyo-music"
