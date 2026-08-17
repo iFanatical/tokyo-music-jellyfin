@@ -65,6 +65,16 @@ UNSAFE_MULTIVALUE = {"wma"}
 
 CYRILLIC_RX = re.compile(r"[Ѐ-ӿ]")
 
+# Titles that already credit the guests must not be credited twice.
+FEAT_RX = re.compile(r"\b(feat\.?|ft\.?|featuring|with)\b", re.I)
+
+
+def format_feat(guests):
+    """'feat. A', 'feat. A & B', 'feat. A, B & C' — the usual convention."""
+    if len(guests) == 1:
+        return f"feat. {guests[0]}"
+    return f"feat. {', '.join(guests[:-1])} & {guests[-1]}"
+
 
 def die(msg: str) -> None:
     print(f"error: {msg}", file=sys.stderr)
@@ -195,10 +205,14 @@ class Track:
             t["Author"] = artists
             if albumartists:
                 t["WM/AlbumArtist"] = albumartists
+            if title:
+                t["Title"] = [title]
+            if album:
+                t["WM/AlbumTitle"] = [album]
             t.save()
 
 
-def plan_changes(root, canonical, fix_encoding):
+def plan_changes(root, canonical, fix_encoding, feat_in_title=False):
     changes, skipped, scanned = [], [], 0
     for dirpath, _dirs, files in os.walk(root):
         for name in sorted(files):
@@ -234,8 +248,18 @@ def plan_changes(root, canonical, fix_encoding):
 
             splitting = len(new_artists) > len(artists)
             if ext in UNSAFE_MULTIVALUE and splitting:
-                skipped.append((path, artists, new_artists))
-                continue
+                if not feat_in_title:
+                    skipped.append((path, artists, new_artists))
+                    continue
+                # Multi-value tags are unusable in this format, so keep the
+                # primary artist alone and name the guests in the title. The
+                # information survives and no phantom artist is created, but
+                # the guests are not browsable as artists — a limitation of
+                # the format, not of the tagging.
+                guests = new_artists[1:]
+                if title and not FEAT_RX.search(title):
+                    new_title = f"{title} ({format_feat(guests)})"
+                new_artists = new_artists[:1]
 
             if (new_artists == artists and new_albumartists == albumartists
                     and new_title == title and new_album == album):
@@ -375,6 +399,10 @@ def main() -> int:
     ap.add_argument("--token", help="Jellyfin API key or access token")
     ap.add_argument("--media-root", help="local path prefix, if the library is mounted elsewhere")
     ap.add_argument("--server-root", help="matching path prefix as the Jellyfin server sees it")
+    ap.add_argument("--feat-in-title", action="store_true",
+                    help="for formats where multi-value tags do not work (WMA), "
+                         "keep the primary artist and move guests into the "
+                         "track title as '(feat. ...)' instead of skipping")
     ap.add_argument("--refresh-only", action="store_true",
                     help="skip tag work; just make Jellyfin re-read this path "
                          "(useful if tags were fixed by another tool)")
@@ -404,7 +432,8 @@ def main() -> int:
         return 0
 
     print(f"scanning {args.path}")
-    changes, skipped, scanned = plan_changes(args.path, canonical, args.fix_encoding)
+    changes, skipped, scanned = plan_changes(args.path, canonical, args.fix_encoding,
+                                              args.feat_in_title)
     print(f"  {scanned} audio file(s) scanned, {len(changes)} need changes\n")
 
     if skipped:
@@ -412,7 +441,7 @@ def main() -> int:
         for path, old, new in skipped:
             print(f"  {os.path.basename(path)}")
             print(f"     {old} would become {new}")
-        print("  Move the featured artist into the track title instead.\n")
+        print("  Re-run with --feat-in-title to move the guests into the title.\n")
 
     if not changes:
         print("Nothing to do.")
@@ -448,7 +477,14 @@ def main() -> int:
             change["track"].write(change["new_artists"], change["new_albumartist"],
                                  change["new_title"], change["new_album"])
             verify = Track(path).read()
-            ok = bool(verify) and verify[0] == change["new_artists"]
+            # Check every field that was meant to change, not just artists —
+            # a write path that silently ignores titles would otherwise pass.
+            ok = bool(verify) and (
+                verify[0] == change["new_artists"]
+                and verify[1] == change["new_albumartist"]
+                and verify[2] == change["new_title"]
+                and verify[3] == change["new_album"]
+            )
             undo.append({k: v for k, v in change.items() if k != "track"} | {
                 "backup": backup, "verified": ok})
             if not ok:
