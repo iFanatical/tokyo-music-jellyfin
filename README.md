@@ -178,6 +178,8 @@ writes an `undo.json`, and is idempotent.
 | `--jellyfin-url` / `--token` | refresh the affected albums and rescan afterwards |
 | `--media-root` / `--server-root` | path translation when the library is mounted elsewhere |
 | `--refresh-only` | skip tag work; just make Jellyfin re-read a path |
+| `--feat-in-title` | for WMA, keep the primary artist and credit guests in the title |
+| `--report-duplicates` | list duplicate-looking artist records in Jellyfin; changes nothing |
 
 Deliberate limits, each learned the hard way:
 
@@ -194,6 +196,30 @@ Deliberate limits, each learned the hard way:
   scanning too early silently does nothing. The tool sequences this for you.
 - **Loose files** sitting directly in an artist folder belong to an album record
   with no directory, so the tool refreshes changed tracks individually as well.
+
+### Finding duplicates the tag pass cannot fix
+
+```bash
+tools/fix-artist-tags.py . --report-duplicates \
+    --jellyfin-url http://<host>:8096 --token <key>
+```
+
+Some duplicates are not tag problems at all. Jellyfin keeps artist records
+around that no longer match anything, and it matches artist names
+case-insensitively, so a leftover never looks orphaned and no scan prunes it.
+The report lists three kinds: byte-identical names, the same artist under
+different spellings, and names that are several artists joined together.
+
+Identical names are the easy ones to miss — grouping by a normalised key and
+reporting only when the spellings differ hides them completely, because the set
+of spellings has size one.
+
+Each record is labelled `library` or `metadata-stub` by its `Path`. A stub under
+`/var/lib/jellyfin/metadata/artists/` is a leftover and `DELETE /Items/{id}` is
+safe, even though `CanDelete` reports false. **A record pointing into the media
+library is real music — deleting that can take the files with it.** Check the
+path before deleting anything, and confirm a library-backed record with the same
+name will survive.
 
 ### Preventing it at source
 

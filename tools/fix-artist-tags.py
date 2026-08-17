@@ -50,6 +50,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import unicodedata
 from collections import Counter
 
 AUDIO_EXTS = {"flac", "mp3", "m4a", "mp4", "ogg", "oga", "opus", "wma"}
@@ -275,6 +276,72 @@ def plan_changes(root, canonical, fix_encoding, feat_in_title=False):
     return changes, skipped, scanned
 
 
+def report_duplicates(base, token, library_id=None):
+    """List artist records that look like duplicates of one another.
+
+    Catches three kinds, the first of which is easy to miss: two records with
+    byte-identical names. Grouping only by a normalised key and reporting when
+    the distinct spellings differ hides those completely, because the set of
+    spellings has size one.
+    """
+    params = {"Limit": "5000", "Fields": "Path"}
+    if library_id:
+        params["ParentId"] = library_id
+    try:
+        data = jellyfin_request(base, token, "/Artists", params=params) or {}
+    except Exception as exc:  # noqa: BLE001
+        die(f"could not query Jellyfin: {exc}")
+
+    items = data.get("Items", [])
+    print(f"{len(items)} artist record(s)\n")
+
+    def kind(item):
+        return ("metadata-stub"
+                if "/metadata/artists/" in (item.get("Path") or "")
+                else "library")
+
+    # 1. byte-identical names
+    by_name = {}
+    for i in items:
+        by_name.setdefault(i["Name"], []).append(i)
+    identical = {n: v for n, v in by_name.items() if len(v) > 1}
+    print(f"=== identical names: {len(identical)} ===")
+    for name, group in sorted(identical.items()):
+        print(f"  {name!r}")
+        for i in group:
+            print(f"     {kind(i):14} id={i['Id']}  {i.get('Path')!r}")
+
+    # 2. same artist, different spelling
+    dashes = dict.fromkeys(map(ord, "‐‑‒–—―−"), "-")
+    def key(name):
+        n = unicodedata.normalize("NFKC", name).casefold().translate(dashes)
+        return re.sub(r"\s+", " ", n.replace("&", "and")).strip()
+
+    by_key = {}
+    for i in items:
+        by_key.setdefault(key(i["Name"]), []).append(i)
+    variants = {k: v for k, v in by_key.items()
+                if len({i["Name"] for i in v}) > 1}
+    print(f"\n=== same artist, different spelling: {len(variants)} ===")
+    for _k, group in sorted(variants.items()):
+        for i in group:
+            print(f"  {i['Name']!r:34} {kind(i):14} {i.get('Path')!r}")
+        print()
+
+    # 3. names that are really several artists joined together
+    joined = sorted(i["Name"] for i in items if SPLIT_RX.search(i["Name"]))
+    print(f"=== delimiter-joined names: {len(joined)} ===")
+    for n in joined:
+        print(f"  {n!r}")
+
+    total = len(identical) + len(variants) + len(joined)
+    print(f"\n{'no duplicates found' if not total else str(total) + ' issue group(s) to look at'}")
+    print("A metadata-stub record with no library path is a leftover; deleting "
+          "one\nvia the API is safe. A record pointing into the library is real "
+          "music —\nnever delete that, it can take the files with it.")
+    return 0
+
+
 def jellyfin_request(base, token, path, method="GET", params=None):
     url = base.rstrip("/") + path
     if params:
@@ -403,6 +470,10 @@ def main() -> int:
                     help="for formats where multi-value tags do not work (WMA), "
                          "keep the primary artist and move guests into the "
                          "track title as '(feat. ...)' instead of skipping")
+    ap.add_argument("--report-duplicates", action="store_true",
+                    help="list duplicate-looking artist records in Jellyfin and "
+                         "exit; makes no changes")
+    ap.add_argument("--library-id", help="restrict --report-duplicates to one library")
     ap.add_argument("--refresh-only", action="store_true",
                     help="skip tag work; just make Jellyfin re-read this path "
                          "(useful if tags were fixed by another tool)")
@@ -416,6 +487,11 @@ def main() -> int:
         with open(args.canonical, encoding="utf-8") as fh:
             canonical = json.load(fh)
         print(f"loaded {len(canonical)} canonical name(s)")
+
+    if args.report_duplicates:
+        if not (args.jellyfin_url and args.token):
+            die("--report-duplicates needs --jellyfin-url and --token")
+        return report_duplicates(args.jellyfin_url, args.token, args.library_id)
 
     if args.refresh_only:
         if not (args.jellyfin_url and args.token):
