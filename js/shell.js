@@ -139,6 +139,28 @@ export function buildSidebar({ onLogout }) {
 
   const plList = el("div.sidebar-playlists");
 
+  // The initial stays in the DOM as the layer underneath: if the user has no
+  // Jellyfin avatar, or the image fails, it is simply what shows through. Same
+  // stacking idea as .art / .art-fallback for album covers.
+  const avatar = el("div.user-avatar", {
+    text: (api.userName || "?")[0].toUpperCase(),
+  });
+
+  const showAvatarImage = (url) => {
+    if (!url || avatar.querySelector("img")) return;
+    const img = el("img", { alt: "", decoding: "async", src: url });
+    img.addEventListener("load", () => img.classList.add("loaded"), { once: true });
+    img.addEventListener("error", () => img.remove(), { once: true });
+    avatar.append(img);
+  };
+
+  showAvatarImage(api.avatarUrl());
+  // A session restored from localStorage may not know the tag yet; fetch it once
+  // and fill the picture in when it arrives.
+  if (api.userImageTag === null) {
+    api.loadUserImageTag().then(() => showAvatarImage(api.avatarUrl()));
+  }
+
   const userChip = el("button.user-chip", {
     onclick: (e) =>
       contextMenu(e, [
@@ -162,7 +184,7 @@ export function buildSidebar({ onLogout }) {
         { label: "Sign out", icon: "logout", danger: true, onClick: onLogout },
       ]),
   }, [
-    el("div.user-avatar", { text: (api.userName || "?")[0].toUpperCase() }),
+    avatar,
     el("span", { text: api.userName || "Account" }),
   ]);
 

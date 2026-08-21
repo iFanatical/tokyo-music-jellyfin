@@ -316,6 +316,27 @@ svg {
   font-weight: 700;
   color: #fff;
   flex: none;
+  /* Anchors the avatar image and clips it to the circle; the initial sits
+     underneath and shows through whenever there is no picture. */
+  position: relative;
+  overflow: hidden;
+}
+
+.user-avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Jellyfin serves user avatars at full resolution, so the browser is doing the
+     downscale here; this keeps it from looking soft at 26px. */
+  image-rendering: auto;
+  opacity: 0;
+  transition: opacity 0.32s var(--ease);
+}
+
+.user-avatar img.loaded {
+  opacity: 1;
 }
 
 /* ---------- Main column ---------- */

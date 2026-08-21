@@ -112,6 +112,8 @@ class JellyfinApi {
     this.token = "";
     this.userId = "";
     this.userName = "";
+    // null = not looked up yet, "" = looked up and the user has no avatar.
+    this.userImageTag = null;
     this.serverName = "";
     this.musicViewIds = [];
     this.playlistViewId = "";
@@ -141,6 +143,7 @@ class JellyfinApi {
         token: this.token,
         userId: this.userId,
         userName: this.userName,
+        userImageTag: this.userImageTag,
         serverName: this.serverName,
         musicViewIds: this.musicViewIds,
         playlistViewId: this.playlistViewId,
@@ -152,6 +155,7 @@ class JellyfinApi {
     this.token = "";
     this.userId = "";
     this.userName = "";
+    this.userImageTag = null;
     this.musicViewIds = [];
     localStorage.removeItem(LS_SESSION);
   }
@@ -285,6 +289,7 @@ class JellyfinApi {
     this.token = data.AccessToken;
     this.userId = data.User.Id;
     this.userName = data.User.Name;
+    this.userImageTag = data.User.PrimaryImageTag || "";
     this.serverName = data.SessionInfo?.ServerId || this.serverName;
     await this.loadViews();
     this._persist();
@@ -717,6 +722,49 @@ class JellyfinApi {
       });
     }
     return null;
+  }
+
+  /**
+   * The signed-in user's Jellyfin avatar, or null when they have none.
+   *
+   * Two quirks of this endpoint, both confirmed against 10.11.11:
+   *   - It ignores every sizing parameter (maxHeight, fillHeight, width...) and
+   *     always returns the image at full resolution, so `size` cannot be used to
+   *     ask for a thumbnail. `format=webp` is the only lever that helps: it
+   *     re-encodes a 7 MB / 2048px PNG down to ~400 KB for the same pixels.
+   *     Responses carry a year-long max-age, so this is a one-time cost per
+   *     browser, and the tag in the query string busts it when the avatar changes.
+   *   - It needs no Authorization header, which is why an <img> can load it
+   *     directly the way album art does.
+   *
+   * Returns null rather than a URL when the user has no avatar, so callers can
+   * keep showing the initial instead of firing a request that 404s.
+   */
+  avatarUrl() {
+    if (!this.userId || !this.userImageTag) return null;
+    return this.url(`/Users/${this.userId}/Images/Primary`, {
+      tag: this.userImageTag,
+      format: "webp",
+    });
+  }
+
+  /**
+   * Fills in `userImageTag` for sessions that predate it being stored (a session
+   * restored from localStorage has no tag until the next sign-in). Safe to call
+   * repeatedly: it only reaches the server while the tag is still unknown.
+   */
+  async loadUserImageTag() {
+    if (this.userImageTag !== null || !this.userId) return this.userImageTag;
+    try {
+      const u = await this.get(`/Users/${this.userId}`);
+      this.userImageTag = u?.PrimaryImageTag || "";
+      if (u?.Name) this.userName = u.Name;
+      this._persist();
+    } catch {
+      // Offline or the endpoint refused; leave it unknown and retry next load
+      // rather than caching a wrong answer.
+    }
+    return this.userImageTag;
   }
 
   /**
