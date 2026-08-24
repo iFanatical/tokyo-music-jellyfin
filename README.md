@@ -105,6 +105,111 @@ Everything is audio-scoped at the API layer: queries are restricted to
 `MusicAlbum` / `MusicArtist` / `Audio` and to your music libraries, and
 playlists are filtered to `MediaType: Audio`. Video cannot appear.
 
+## Importing new music
+
+`tools/import-music.py` provides a repeatable inbox-to-library workflow. It
+reads embedded tags, normalises conservative multi-artist conventions, rejects
+missing or conflicting metadata, and plans an `Artist/Album/original-file`
+destination. A multi-artist compilation with no album artist is filed under
+`Various Artists` without changing its deliberately empty `ALBUMARTIST` tag.
+
+It is always a dry run first:
+
+```bash
+tools/import-music.py ~/Music/inbox
+```
+
+Review every destination, then copy and verify the files and ask Jellyfin to
+scan. Put the token in the environment rather than the command line so it does
+not appear in shell history:
+
+```bash
+export JELLYFIN_TOKEN='<api-key>'
+tools/import-music.py ~/Music/inbox --apply \
+  --jellyfin-url http://jellyfin.bush.home.arpa:8096
+```
+
+The library defaults to `/mnt/servers/jellyfin/srv/music/library`; override it
+with `--library`. Add `--move` only when you want successfully verified source
+files removed. Existing destinations, filename collisions, unreadable files,
+and missing `ARTIST`, `ALBUM`, or `TITLE` tags abort the whole import before it
+writes anything. Use `--canonical canonical.json` for established spelling
+corrections and `--fix-encoding` for the same conservative encoding repair as
+the maintenance tool.
+
+## Filling missing artwork
+
+`tools/fill-missing-artwork.py` searches Jellyfin's configured remote image
+providers for Primary images only where artwork is currently missing. It
+handles artists, albums, or both, and uses the dedicated remote-image download
+API so existing curated artwork is never refreshed or replaced.
+
+The command reads `JELLYFIN_TOKEN` first, then falls back to the restricted
+token file at `~/.config/tokyo-music/jellyfin-token`:
+
+```bash
+tools/fill-missing-artwork.py artists              # dry run
+tools/fill-missing-artwork.py artists --probe --limit 10
+tools/fill-missing-artwork.py artists --apply
+tools/fill-missing-artwork.py albums --apply
+tools/fill-missing-artwork.py both --apply --limit 25
+```
+
+The URL defaults to `http://jellyfin.bush.home.arpa:8096`. Searches use
+whichever artist and album image providers are enabled there. The tool reports
+which items received art, which had no provider match, and writes details to
+`artwork-report.json`. Start with a small `--limit` before processing the entire
+library.
+
+Add `--move` to an `artists` or `albums` apply run to quarantine items for which
+the provider returns no image:
+
+```bash
+tools/fill-missing-artwork.py albums --probe --move --limit 10
+tools/fill-missing-artwork.py albums --apply --move --limit 10
+```
+
+Jellyfin paths below `/srv/music/library` are mapped onto the local SSHFS mount
+at `/mnt/servers/jellyfin/srv/music/library` and moved, with their relative
+folder structure intact, under `/mnt/servers/jellyfin/srv/music/review`.
+Existing destinations, stale paths, and paths outside the configured library
+abort the move phase. `--move` cannot be combined with `both`, because artist
+and album directory paths can overlap.
+
+Known orphaned database items below the obsolete `/jellyfin/Music` prefix are
+excluded before provider searches. Override `--stale-prefix` only if the server
+was migrated from a different path.
+
+To inventory every regular file that is not named with a case-insensitive
+`.flac` suffix—including cover images and text files—run:
+
+```bash
+tools/list-non-flac.py
+tools/list-non-flac.py /another/music/path
+```
+
+Paths go to standard output and an extension summary goes to standard error,
+so the results can be redirected without mixing in the summary.
+
+For a LibreOffice-compatible track spreadsheet, use `--csv`. Spreadsheet mode
+automatically excludes cover images, text files, and other sidecars, and adds
+embedded artist, album artist, album, title, track, date, format, and size
+columns when Mutagen can read them:
+
+```bash
+.venv/bin/python tools/list-non-flac.py --csv non-flac-tracks.csv
+libreoffice non-flac-tracks.csv
+```
+
+Before database cleanup, `tools/backup-jellyfin.sh` can be streamed to the
+server and run with sudo. It briefly stops Jellyfin, archives
+`/var/lib/jellyfin` and `/etc/jellyfin`, verifies the archive, and restarts the
+service through an exit trap:
+
+```bash
+ssh -t jellyfin.bush.home.arpa 'sudo bash -s' < tools/backup-jellyfin.sh
+```
+
 ---
 
 ## Features

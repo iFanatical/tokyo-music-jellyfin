@@ -19,6 +19,7 @@ Thumbs.db
 # Only here if tooling is added later; the app itself has no dependencies
 node_modules/
 package-lock.json
+.venv/
 
 # Local overrides
 .env
@@ -26,3 +27,11 @@ package-lock.json
 
 # Local deployment settings (hostnames, usernames)
 deploy/config.env
+
+# Default output from the tag maintenance tool
+tag-backups/
+artwork-report.json
+stale-library-report.json
+stale-library-cleanup-result.json
+non-flac-tracks.csv
+*.precleanup-*.bak
