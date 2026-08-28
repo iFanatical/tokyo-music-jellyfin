@@ -123,9 +123,13 @@ class Player {
       this._updateMediaSessionState();
     });
 
+    a.addEventListener("playing", () => {
+      this._syncMediaSession();
+    });
+
     a.addEventListener("pause", () => {
       this._emit("state", this.snapshot());
-      this._updateMediaSessionState();
+      this._syncMediaSession();
       const t = this.current;
       if (t) api.reportProgress(t, {
         positionSec: a.currentTime,
@@ -270,11 +274,11 @@ class Player {
     this.audio.src = api.streamUrl(track, { maxBitrate: this.maxBitrate });
     this.audio.load();
     this._emit("track", this.snapshot());
-    this._updateMediaSessionMetadata();
 
     if (autoplay) {
       try {
         await this.audio.play();
+        this._syncMediaSession();
         this._reportedItem = track;
         api.reportStart(track, { positionSec: 0 });
       } catch (e) {
@@ -288,6 +292,8 @@ class Player {
           });
         }
       }
+    } else {
+      this._syncMediaSession();
     }
     this._emit("state", this.snapshot());
   }
@@ -372,6 +378,7 @@ class Player {
     this.audio.load();
     this.index = -1;
     this._reportedItem = null;
+    this._syncMediaSession();
     this._emit("track", this.snapshot());
     this._emit("state", this.snapshot());
   }
@@ -518,7 +525,16 @@ class Player {
 
   _updateMediaSessionState() {
     if (!("mediaSession" in navigator)) return;
-    navigator.mediaSession.playbackState = this.isPlaying ? "playing" : "paused";
+    navigator.mediaSession.playbackState = this.current
+      ? this.isPlaying
+        ? "playing"
+        : "paused"
+      : "none";
+  }
+
+  _syncMediaSession() {
+    this._updateMediaSessionMetadata();
+    this._updateMediaSessionState();
   }
 }
 
