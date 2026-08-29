@@ -110,13 +110,15 @@ def repair_encoding(value: str) -> str:
     return fixed
 
 
-def split_artists(values, canonical, fix_encoding):
+def split_artists(values, canonical, fix_encoding, split_map=None):
     """Expand delimited values into a de-duplicated list of artist names."""
+    split_map = split_map or {}
     out = []
     for value in values:
         if fix_encoding:
             value = repair_encoding(value)
-        for part in SPLIT_RX.split(value):
+        parts = split_map.get(value, SPLIT_RX.split(value))
+        for part in parts:
             part = part.strip().strip(",")
             if not part:
                 continue
@@ -213,7 +215,7 @@ class Track:
             t.save()
 
 
-def plan_changes(root, canonical, fix_encoding, feat_in_title=False):
+def plan_changes(root, canonical, fix_encoding, feat_in_title=False, split_map=None):
     changes, skipped, scanned = [], [], 0
     for dirpath, _dirs, files in os.walk(root):
         for name in sorted(files):
@@ -228,7 +230,7 @@ def plan_changes(root, canonical, fix_encoding, feat_in_title=False):
                 continue
             artists, albumartists, title, album = got
 
-            new_artists = split_artists(artists, canonical, fix_encoding)
+            new_artists = split_artists(artists, canonical, fix_encoding, split_map)
             # Only ever *reduce* a polluted album artist. Never invent one:
             # an empty ALBUMARTIST usually means a compilation, and filling it
             # from one track's artist splits the album.
@@ -462,6 +464,8 @@ def main() -> int:
     ap.add_argument("--fix-encoding", action="store_true",
                     help="also repair UTF-8-read-as-CP1251 text")
     ap.add_argument("--canonical", help="JSON file of {\"wrong name\": \"right name\"}")
+    ap.add_argument("--split-map",
+                    help="JSON map of exact compound artist names to artist arrays")
     ap.add_argument("--jellyfin-url", help="e.g. http://myserver:8096 (refresh after applying)")
     ap.add_argument("--token", help="Jellyfin API key or access token")
     ap.add_argument("--media-root", help="local path prefix, if the library is mounted elsewhere")
@@ -488,6 +492,17 @@ def main() -> int:
             canonical = json.load(fh)
         print(f"loaded {len(canonical)} canonical name(s)")
 
+    split_map = {}
+    if args.split_map:
+        with open(args.split_map, encoding="utf-8") as fh:
+            split_map = json.load(fh)
+        if not isinstance(split_map, dict) or not all(
+                isinstance(key, str) and isinstance(value, list) and value
+                and all(isinstance(part, str) and part.strip() for part in value)
+                for key, value in split_map.items()):
+            die("--split-map must be a JSON object of non-empty string arrays")
+        print(f"loaded {len(split_map)} explicit artist split(s)")
+
     if args.report_duplicates:
         if not (args.jellyfin_url and args.token):
             die("--report-duplicates needs --jellyfin-url and --token")
@@ -509,7 +524,7 @@ def main() -> int:
 
     print(f"scanning {args.path}")
     changes, skipped, scanned = plan_changes(args.path, canonical, args.fix_encoding,
-                                              args.feat_in_title)
+                                              args.feat_in_title, split_map)
     print(f"  {scanned} audio file(s) scanned, {len(changes)} need changes\n")
 
     if skipped:

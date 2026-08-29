@@ -34,4 +34,5 @@ artwork-report.json
 stale-library-report.json
 stale-library-cleanup-result.json
 non-flac-tracks.csv
+compound-artist-audit.json
 *.precleanup-*.bak

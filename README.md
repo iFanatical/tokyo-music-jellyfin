@@ -279,6 +279,7 @@ writes an `undo.json`, and is idempotent.
 |---|---|
 | `--apply` | actually write; otherwise it only reports |
 | `--canonical FILE` | JSON map of `{"wrong name": "right name"}` for spellings you have settled on |
+| `--split-map FILE` | exact JSON map of ambiguous compound names to artist arrays |
 | `--fix-encoding` | repair UTF-8 text that was decoded as CP1251 (`JГіnsi` → `Jónsi`) |
 | `--jellyfin-url` / `--token` | refresh the affected albums and rescan afterwards |
 | `--media-root` / `--server-root` | path translation when the library is mounted elsewhere |
