@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Icon=../assets/tokyo-music-icon-512.png
+Icon=$HOME/projects/jellyfin-frontend/assets/tokyo-music-icon-512.png
 Name=Tokyo Music
 GenericName=Custom Jellyfin frontend for music playing.
 Exec=fanos-launch-webapp "http://jellyfin.bush.home.arpa:8097/#/home"
