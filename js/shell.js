@@ -321,7 +321,7 @@ export function buildTopbar() {
    Player bar
    ============================================================ */
 
-export function buildPlayerBar({ onToggleQueue }) {
+export function buildPlayerBar({ onToggleQueue, onToggleFullscreen }) {
   /* --- now playing --- */
   const artWrap = el("div.np-art");
   const title = el("div.np-title", { text: "Nothing playing" });
@@ -417,6 +417,13 @@ export function buildPlayerBar({ onToggleQueue }) {
     onclick: onToggleQueue,
   });
 
+  const fullscreenBtn = el("button.icon-btn.ghost", {
+    html: icons.fullscreen,
+    title: "Fullscreen player (F)",
+    "aria-label": "Fullscreen player",
+    onclick: onToggleFullscreen,
+  });
+
   const volWrap = el("div.volume-wrap", {}, [volBtn, vol]);
 
   /* Wheel over the volume cluster nudges the level. passive:false is required
@@ -433,7 +440,12 @@ export function buildPlayerBar({ onToggleQueue }) {
     { passive: false }
   );
 
-  const right = el("div.player-right", {}, [qualityTag, queueBtn, volWrap]);
+  const right = el("div.player-right", {}, [
+    qualityTag,
+    fullscreenBtn,
+    queueBtn,
+    volWrap,
+  ]);
 
   const root = el("footer.player", {}, [nowPlaying, center, right]);
 

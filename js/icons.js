@@ -53,6 +53,7 @@ export const icons = {
   chevronRight: wrap('<path d="m9 18 6-6-6-6"/>'),
   dots: solid('<circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/>'),
   queue: wrap('<path d="M3 6h11M3 12h11M3 18h7"/><path d="M17 9v9"/><path d="m17 9 4-1.6"/>'),
+  fullscreen: wrap('<path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/>'),
   trash: wrap('<path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/><path d="M10 11v6M14 11v6"/>'),
   playlistAdd: wrap('<path d="M3 6h12M3 12h12M3 18h7"/><path d="M18 10v9M13.5 14.5h9"/>'),
   queueNext: wrap('<path d="M3 6h12M3 12h9M3 18h9"/><path d="M17 8v8l5-4z" fill="currentColor" stroke="none"/>'),

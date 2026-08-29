@@ -54,8 +54,11 @@ function startApp() {
     app.dataset.queue = open ? "closed" : "open";
   };
 
-  const playerBar = buildPlayerBar({ onToggleQueue: toggleQueue });
   const fullscreenPlayer = buildFullscreenPlayer();
+  const playerBar = buildPlayerBar({
+    onToggleQueue: toggleQueue,
+    onToggleFullscreen: () => fullscreenPlayer.toggle(),
+  });
 
   app.append(sidebar, main, queuePanel, playerBar, fullscreenPlayer);
   root.append(app);
