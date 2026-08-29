@@ -1442,6 +1442,214 @@ svg {
 }
 
 /* ============================================================
+   Fullscreen player
+   ============================================================ */
+
+.fullscreen-player {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(65, 72, 104, 0.2), transparent 48%),
+    linear-gradient(145deg, #16161e 0%, #0f111a 52%, #07080d 100%);
+  cursor: default;
+}
+
+.fullscreen-player[hidden] {
+  display: none;
+}
+
+.fullscreen-art {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: clamp(24px, 5vmin, 72px) clamp(24px, 6vmin, 88px)
+    clamp(130px, 18vh, 190px);
+}
+
+.fullscreen-ambient {
+  position: absolute;
+  inset: -12%;
+  overflow: hidden;
+  opacity: 0.14;
+  filter: blur(80px) saturate(1.35);
+  pointer-events: none;
+}
+
+.fullscreen-ambient img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fullscreen-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at center, transparent 8%, rgba(15, 17, 26, 0.2) 58%),
+    linear-gradient(to bottom, rgba(15, 17, 26, 0.2), rgba(5, 6, 10, 0.72));
+  pointer-events: none;
+}
+
+.fullscreen-art-stage {
+  position: relative;
+  z-index: 1;
+  width: min(56vmin, 640px);
+  aspect-ratio: 1;
+}
+
+.fullscreen-art-main {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.62),
+    0 0 0 1px rgba(192, 202, 245, 0.1);
+}
+
+.fullscreen-art-glow {
+  position: absolute;
+  z-index: 0;
+  inset: -7%;
+  opacity: 0.42;
+  filter: blur(42px) saturate(1.5);
+  transform: translateY(2%);
+  pointer-events: none;
+}
+
+.fullscreen-art-glow img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fullscreen-art-reflection {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 12px);
+  left: 3%;
+  width: 94%;
+  height: 28%;
+  overflow: hidden;
+  opacity: 0.2;
+  filter: blur(1px);
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), transparent 80%);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), transparent 80%);
+  pointer-events: none;
+}
+
+.fullscreen-art-reflection img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleY(-1);
+}
+
+.fullscreen-art-fallback {
+  position: relative;
+  z-index: 1;
+  width: min(56vmin, 640px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  color: var(--text-faint);
+  background: var(--surface-2);
+  border-radius: 10px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.62);
+}
+
+.fullscreen-art-fallback svg {
+  width: 30%;
+  height: 30%;
+}
+
+.fullscreen-controls {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto minmax(260px, 1fr);
+  align-items: center;
+  gap: clamp(16px, 3vw, 48px);
+  padding: 56px clamp(24px, 5vw, 80px) clamp(22px, 4vh, 44px);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.92), transparent);
+  transition: opacity 0.25s var(--ease), transform 0.25s var(--ease);
+}
+
+.fullscreen-player.idle {
+  cursor: none;
+}
+
+.fullscreen-player.idle .fullscreen-controls {
+  opacity: 0;
+  transform: translateY(18px);
+  pointer-events: none;
+}
+
+.fullscreen-track {
+  min-width: 0;
+}
+
+.fullscreen-title,
+.fullscreen-artist {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fullscreen-title {
+  font-size: clamp(16px, 2vw, 24px);
+  font-weight: 700;
+}
+
+.fullscreen-artist {
+  color: var(--text-muted);
+  font-size: clamp(12px, 1.3vw, 16px);
+}
+
+.fullscreen-transport {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.fullscreen-transport .icon-btn {
+  width: 42px;
+  height: 42px;
+  color: #fff;
+}
+
+.fullscreen-play {
+  width: 52px;
+  height: 52px;
+}
+
+.fullscreen-seek {
+  max-width: none;
+}
+
+@media (max-width: 720px) {
+  .fullscreen-controls {
+    grid-template-columns: 1fr auto;
+    padding-inline: 22px;
+  }
+  .fullscreen-seek {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+/* ============================================================
    Queue panel
    ============================================================ */
 

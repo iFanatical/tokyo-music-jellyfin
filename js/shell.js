@@ -555,6 +555,140 @@ export function buildPlayerBar({ onToggleQueue }) {
 }
 
 /* ============================================================
+   Fullscreen player
+   ============================================================ */
+
+export function buildFullscreenPlayer() {
+  const art = el("div.fullscreen-art");
+  const title = el("div.fullscreen-title", { text: "Nothing playing" });
+  const artist = el("div.fullscreen-artist", { text: "—" });
+  const playBtn = el("button.btn-play.fullscreen-play", {
+    html: icons.play,
+    title: "Play",
+    onclick: () => player.toggle(),
+  });
+  const curTime = el("div.time", { text: "0:00" });
+  const durTime = el("div.time.right", { text: "0:00" });
+  const seek = rangeControl({
+    label: "Seek",
+    onInput: (v) => {
+      curTime.textContent = fmtTime(v * (player.duration || 0));
+    },
+    onCommit: (v) => player.seek(v * (player.duration || 0)),
+  });
+
+  const controls = el("div.fullscreen-controls", {}, [
+    el("div.fullscreen-track", {}, [title, artist]),
+    el("div.fullscreen-transport", {}, [
+      el("button.icon-btn", {
+        html: icons.prev,
+        title: "Previous",
+        onclick: () => player.prev(),
+      }),
+      playBtn,
+      el("button.icon-btn", {
+        html: icons.next,
+        title: "Next",
+        onclick: () => player.next(),
+      }),
+    ]),
+    el("div.fullscreen-seek.seek-row", {}, [curTime, seek, durTime]),
+  ]);
+  const root = el("div.fullscreen-player", { hidden: true }, [art, controls]);
+  let hideTimer = 0;
+
+  function renderTrack() {
+    const t = player.current;
+    clear(art);
+    title.textContent = t ? displayName(t, "Unknown track") : "Nothing playing";
+    artist.textContent = t ? artistsOf(t) || "Unknown artist" : "—";
+    if (!t) return;
+
+    const url = api.bestImageUrl(t, { size: 1600 });
+    if (url) {
+      const alt = `Album art for ${displayName(t, "current track")}`;
+      art.append(
+        el("div.fullscreen-ambient", {}, [el("img", { src: url, alt: "" })]),
+        el("div.fullscreen-art-stage", {}, [
+          el("div.fullscreen-art-glow", {}, [el("img", { src: url, alt: "" })]),
+          el("img.fullscreen-art-main", { src: url, alt }),
+          el("div.fullscreen-art-reflection", {}, [
+            el("img", { src: url, alt: "" }),
+          ]),
+        ])
+      );
+    } else {
+      art.append(el("div.fullscreen-art-fallback", { html: icons.music }));
+    }
+    durTime.textContent = fmtTime(player.duration);
+  }
+
+  function renderState() {
+    const playing = player.isPlaying;
+    playBtn.innerHTML = playing ? icons.pause : icons.play;
+    playBtn.title = playing ? "Pause" : "Play";
+  }
+
+  function showControls() {
+    root.classList.remove("idle");
+    clearTimeout(hideTimer);
+    if (document.fullscreenElement === root) {
+      hideTimer = window.setTimeout(() => {
+        root.classList.add("idle");
+      }, 2500);
+    }
+  }
+
+  root.addEventListener("pointermove", showControls);
+  root.addEventListener("pointerdown", showControls);
+  root.addEventListener("keydown", showControls);
+  controls.addEventListener("focusin", showControls);
+  controls.addEventListener("focusout", showControls);
+
+  document.addEventListener("fullscreenchange", () => {
+    const active = document.fullscreenElement === root;
+    root.hidden = !active;
+    root.classList.remove("idle");
+    clearTimeout(hideTimer);
+    if (active) showControls();
+  });
+
+  root.toggle = async () => {
+    if (document.fullscreenElement === root) {
+      await document.exitFullscreen();
+      return;
+    }
+    if (!player.current) {
+      toast("Play a song before entering fullscreen");
+      return;
+    }
+    renderTrack();
+    renderState();
+    root.hidden = false;
+    try {
+      await root.requestFullscreen();
+    } catch {
+      root.hidden = true;
+      toast("Fullscreen is unavailable", "err");
+    }
+  };
+
+  player.on("track", renderTrack);
+  player.on("state", renderState);
+  player.on("time", ({ position, duration }) => {
+    if (!seek.isDragging()) {
+      seek.setValue(duration ? position / duration : 0);
+      curTime.textContent = fmtTime(position);
+    }
+    durTime.textContent = fmtTime(duration);
+  });
+
+  renderTrack();
+  renderState();
+  return root;
+}
+
+/* ============================================================
    Queue panel
    ============================================================ */
 

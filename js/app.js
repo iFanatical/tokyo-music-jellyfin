@@ -10,6 +10,7 @@ import {
   buildSidebar,
   buildTopbar,
   buildPlayerBar,
+  buildFullscreenPlayer,
   buildQueuePanel,
 } from "./shell.js";
 import { modal, toast, closeMenu } from "./ui.js";
@@ -54,8 +55,9 @@ function startApp() {
   };
 
   const playerBar = buildPlayerBar({ onToggleQueue: toggleQueue });
+  const fullscreenPlayer = buildFullscreenPlayer();
 
-  app.append(sidebar, main, queuePanel, playerBar);
+  app.append(sidebar, main, queuePanel, playerBar, fullscreenPlayer);
   root.append(app);
 
   /* Topbar shadow once the page is scrolled. */
@@ -184,6 +186,11 @@ function startApp() {
       case "Q":
         toggleQueue();
         break;
+      case "f":
+      case "F":
+        if (e.repeat) break;
+        fullscreenPlayer.toggle();
+        break;
       case "?":
         showShortcuts();
         break;
@@ -208,6 +215,7 @@ const SHORTCUTS = [
   ["S", "Shuffle"],
   ["R", "Repeat mode"],
   ["Q", "Toggle queue"],
+  ["F", "Toggle fullscreen player"],
   ["/", "Search"],
   ["Ctrl-click", "Select multiple tracks"],
   ["Shift-click", "Select a range of tracks"],
