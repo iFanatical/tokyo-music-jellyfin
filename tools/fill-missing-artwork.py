@@ -77,7 +77,10 @@ class Jellyfin:
         }
         if library_id:
             params["ParentId"] = library_id
-        return self.paged("/Artists/AlbumArtists", params)
+        # Include track-only collaborators as well as album artists. Restricting
+        # this to /Artists/AlbumArtists left featured performers permanently
+        # without artwork even though they appear in Jellyfin's artist index.
+        return self.paged("/Artists", params)
 
     def albums(self, library_id=None):
         params = {
@@ -108,6 +111,27 @@ class Jellyfin:
 
     def item(self, item_id: str):
         return self.request(f"/Items/{item_id}") or {}
+
+    def primary_is_visible(self, kind: str, item: dict) -> bool:
+        """Check the image through an endpoint valid for the item type.
+
+        Some Jellyfin releases return HTTP 400 for ``/Items/{id}`` when the
+        id belongs to an artist stub.  The artist index still exposes the
+        freshly downloaded ImageTags, so use it as the verification source.
+        """
+        if kind == "artist":
+            matches = self.paged("/Artists", {
+                "SearchTerm": item.get("Name") or "",
+                "EnableImageTypes": "Primary", "ImageTypeLimit": 1,
+            })
+            current = next(
+                (candidate for candidate in matches
+                 if candidate.get("Id") == item.get("Id")),
+                {},
+            )
+        else:
+            current = self.item(item["Id"])
+        return bool(current.get("ImageTags", {}).get("Primary"))
 
 
 def missing_primary(items):
@@ -320,8 +344,7 @@ def main() -> int:
             else:
                 entry["provider"] = image.get("ProviderName")
                 client.download_primary(item["Id"], image["Url"])
-                current = client.item(item["Id"])
-                if current.get("ImageTags", {}).get("Primary"):
+                if client.primary_is_visible(kind, item):
                     entry["status"] = "filled"
                     filled.append((kind, item))
                     print(f"[{index}/{len(selected)}] filled: {label(item, kind)}")

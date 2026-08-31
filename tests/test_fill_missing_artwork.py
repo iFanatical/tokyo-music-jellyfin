@@ -51,6 +51,26 @@ class ArtworkTests(unittest.TestCase):
             "type": "Primary", "imageUrl": "https://provider/image.jpg",
         })
 
+    def test_artist_visibility_uses_artist_index(self):
+        client = MODULE.Jellyfin("http://example", "token")
+        item = {"Id": "abc", "Name": "Artist"}
+        with patch.object(client, "paged", return_value=[
+            {"Id": "other", "ImageTags": {"Primary": "wrong"}},
+            {"Id": "abc", "ImageTags": {"Primary": "right"}},
+        ]) as paged, patch.object(client, "item") as generic_item:
+            self.assertTrue(client.primary_is_visible("artist", item))
+        generic_item.assert_not_called()
+        self.assertEqual(paged.call_args.args[0], "/Artists")
+
+    def test_album_visibility_uses_generic_item(self):
+        client = MODULE.Jellyfin("http://example", "token")
+        item = {"Id": "abc", "Name": "Album"}
+        with patch.object(client, "item", return_value={
+            "ImageTags": {"Primary": "tag"},
+        }) as generic_item:
+            self.assertTrue(client.primary_is_visible("album", item))
+        generic_item.assert_called_once_with("abc")
+
     def test_review_move_preserves_library_relative_path(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
