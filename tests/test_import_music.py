@@ -13,6 +13,11 @@ SPEC.loader.exec_module(MODULE)
 
 
 class ImportMusicTests(unittest.TestCase):
+    def test_ellipsis_album_directory_is_visible_to_jellyfin(self):
+        self.assertEqual(MODULE.safe_component("...And Justice for All"), "And Justice for All")
+        with self.assertRaises(ValueError):
+            MODULE.safe_component("...")
+
     def test_safe_component_blocks_traversal_and_slashes(self):
         self.assertEqual(MODULE.safe_component("AC/DC"), "AC - DC")
         with self.assertRaises(ValueError):

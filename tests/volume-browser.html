@@ -1,0 +1,73 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Tokyo Music volume regression fixture</title>
+<link rel="stylesheet" href="../css/tokyonight.css">
+<link rel="stylesheet" href="../css/app.css">
+<style>.player { position: fixed; inset: auto 0 0; height: var(--player-h); }</style>
+<body>
+<script type="module">
+import { buildPlayerBar } from "../js/shell.js";
+import { player } from "../js/player.js";
+import { createVolumeGraph, volumeGain } from "../js/volume.js";
+document.body.append(buildPlayerBar({ onToggleQueue() {}, onToggleFullscreen() {} }));
+window.player = player;
+window.renderAudio = async (position, amplitude, mode = "sine", rate = 48000, frequency = 1000) => {
+  const context = new OfflineAudioContext(2, rate, rate);
+  const graph = createVolumeGraph(context);
+  graph.set(position);
+  const buffer = context.createBuffer(2, rate, rate);
+  for (let channel = 0; channel < 2; channel++) {
+    const samples = buffer.getChannelData(channel);
+    for (let i = 0; i < rate; i++) {
+      const wave = Math.sin(2 * Math.PI * frequency * i / rate);
+      samples[i] = amplitude * (mode === "step" ? (i > rate / 3 ? 1 : 0)
+        : mode === "burst" ? (i % 12000 < 300 ? wave : 0) : wave);
+    }
+  }
+  const source = context.createBufferSource();
+  source.buffer = buffer;
+  source.connect(graph.input);
+  source.start();
+  const rendered = await context.startRendering();
+  const output = rendered.getChannelData(0);
+  const input = buffer.getChannelData(0);
+  let peak = 0, error = 0, energy = 0;
+  // Native compressor uses a 6 ms lookahead. Compare unity after this delay.
+  const delay = rate * 0.006;
+  for (let i = 0; i < output.length; i++) {
+    peak = Math.max(peak, Math.abs(output[i]));
+    energy += output[i] ** 2;
+    if (position <= 0.5 && Number.isInteger(delay)) error = Math.max(error,
+      Math.abs(output[i] - (i >= delay ? input[i - delay] * volumeGain(position) : 0)));
+  }
+  return { position, amplitude, mode, rate, frequency, peak, error, rms: Math.sqrt(energy / output.length) };
+};
+window.checkPlayback = async () => {
+  const frames = 48000;
+  const bytes = new ArrayBuffer(44 + frames * 2);
+  const view = new DataView(bytes);
+  const text = (offset, s) => [...s].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
+  text(0, "RIFF"); view.setUint32(4, bytes.byteLength - 8, true); text(8, "WAVEfmt ");
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, frames, true); view.setUint32(28, frames * 2, true);
+  view.setUint16(32, 2, true); view.setUint16(34, 16, true); text(36, "data");
+  view.setUint32(40, frames * 2, true);
+  for (let i = 0; i < frames; i++) view.setInt16(44 + i * 2, Math.sin(i * 0.13) * 1000, true);
+  const url = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+  player.audio.src = url;
+  player.setVolume(0.5);
+  await player._playAudio();
+  const context = player._audioContext;
+  player.setVolume(1);
+  await new Promise(r => setTimeout(r, 60));
+  const gain = player._volumeGraph.boost.gain.value;
+  player.pause();
+  await player._playAudio();
+  const result = { running: context.state, gain, reused: player._audioContext === context, elementGain: player.audio.volume };
+  player.pause();
+  player.setVolume(0.5);
+  URL.revokeObjectURL(url);
+  return result;
+};
+window.ready = true;
+</script>

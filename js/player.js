@@ -2,6 +2,7 @@
 
 import { api } from "./api.js";
 import { emitter, shuffled, ticksToSec, artistsOf, throttle } from "./util.js";
+import { VOLUME_SCALE, volumeGain, gainPosition, createVolumeGraph } from "./volume.js";
 
 const LS_PREFS = "tokyomusic.player";
 const REPEAT_MODES = ["none", "all", "one"];
@@ -23,7 +24,10 @@ class Player {
     this.index = -1;
     this.shuffle = false;
     this.repeat = "none";
-    this.volume = 1;
+    this.volume = 0.5; // center = 0 dB, unity
+    this._audioContext = null;
+    this._volumeGraph = null;
+    this._boostAvailable = Boolean(window.AudioContext || window.webkitAudioContext);
     this.muted = false;
     this.maxBitrate = 0; // 0 = original quality
     /** Where the queue came from, e.g. { type: "album", id, name }. */
@@ -74,7 +78,13 @@ class Player {
   _loadPrefs() {
     try {
       const p = JSON.parse(localStorage.getItem(LS_PREFS) || "{}");
-      this.volume = typeof p.volume === "number" ? p.volume : 1;
+      if (Number.isFinite(p.volume)) {
+        const saved = Math.max(0, Math.min(1, p.volume));
+        // Migrate the previous cubic fader by audible gain, not position:
+        // old 100% becomes center; a quiet saved level must not jump louder.
+        this.volume = p.volumeScale === VOLUME_SCALE ? saved : gainPosition(saved ** 3);
+      }
+      if (!this._boostAvailable) this.volume = Math.min(0.5, this.volume);
       this.muted = Boolean(p.muted);
       this.shuffle = Boolean(p.shuffle);
       this.repeat = REPEAT_MODES.includes(p.repeat) ? p.repeat : "none";
@@ -82,7 +92,7 @@ class Player {
     } catch {
       /* defaults are fine */
     }
-    this.audio.volume = this.volume;
+    this._applyVolume();
     this.audio.muted = this.muted;
   }
 
@@ -91,6 +101,7 @@ class Player {
       LS_PREFS,
       JSON.stringify({
         volume: this.volume,
+        volumeScale: VOLUME_SCALE,
         muted: this.muted,
         shuffle: this.shuffle,
         repeat: this.repeat,
@@ -277,7 +288,7 @@ class Player {
 
     if (autoplay) {
       try {
-        await this.audio.play();
+        await this._playAudio();
         this._syncMediaSession();
         this._reportedItem = track;
         api.reportStart(track, { positionSec: 0 });
@@ -302,7 +313,7 @@ class Player {
     if (!this.current) return;
     if (this.audio.paused) {
       try {
-        await this.audio.play();
+        await this._playAudio();
         if (this._reportedItem?.Id !== this.current.Id) {
           this._reportedItem = this.current;
           api.reportStart(this.current, { positionSec: this.audio.currentTime });
@@ -363,7 +374,7 @@ class Player {
 
     if (this.repeat === "one") {
       this.audio.currentTime = 0;
-      this.audio.play().catch(() => {});
+      this._playAudio().catch(() => {});
       if (t) api.reportStart(t, { positionSec: 0 });
       return;
     }
@@ -394,9 +405,50 @@ class Player {
     this.seek(this.position + delta);
   }
 
+  async _playAudio() {
+    if (!this._audioContext && this._boostAvailable) {
+      const Context = window.AudioContext || window.webkitAudioContext;
+      let context;
+      let source;
+      try {
+        context = new Context();
+        const graph = createVolumeGraph(context);
+        graph.set(this.volume);
+        // Create only one source per media element, reused for every track.
+        source = context.createMediaElementSource(this.audio);
+        source.connect(graph.input);
+        this._audioContext = context;
+        this._volumeGraph = graph;
+        this.audio.volume = 1;
+      } catch {
+        // Keep ordinary playback usable if Web Audio cannot initialize.
+        if (source) {
+          // A media element cannot be detached from its source node again.
+          // Retain a direct route if graph connection failed after capture.
+          source.disconnect();
+          source.connect(context.destination);
+          this._audioContext = context;
+        } else context?.close().catch(() => {});
+        this._boostAvailable = false;
+        this.setVolume(Math.min(0.5, this.volume));
+        this._emit("error", { message: "Audio boost is unavailable in this browser; volume is limited to 0 dB." });
+      }
+    }
+    if (this._audioContext?.state !== "running" && this._audioContext) {
+      await this._audioContext.resume();
+    }
+    return this.audio.play();
+  }
+
+  _applyVolume() {
+    if (this._volumeGraph) this._volumeGraph.set(this.volume);
+    else this.audio.volume = Math.min(1, volumeGain(this.volume));
+  }
+
   setVolume(v) {
-    this.volume = Math.max(0, Math.min(1, v));
-    this.audio.volume = this.volume;
+    if (!Number.isFinite(v)) return;
+    this.volume = Math.max(0, Math.min(this._boostAvailable ? 1 : 0.5, v));
+    this._applyVolume();
     if (this.volume > 0 && this.muted) this.setMuted(false);
     this._savePrefs();
     this._emit("volume", { volume: this.volume, muted: this.muted });
@@ -425,7 +477,7 @@ class Player {
       });
       this.audio.load();
       this.audio.currentTime = pos;
-      if (wasPlaying) this.audio.play().catch(() => {});
+      if (wasPlaying) this._playAudio().catch(() => {});
     }
     this._emit("state", this.snapshot());
   }

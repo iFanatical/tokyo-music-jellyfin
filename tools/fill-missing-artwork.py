@@ -8,6 +8,8 @@ replaceAllImages=false is sent as a second guard against replacing curated art.
 from __future__ import annotations
 
 import argparse
+import base64
+import http.client
 import json
 import os
 import shutil
@@ -16,6 +18,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 
 DEFAULT_URL = "http://jellyfin.bush.home.arpa:8096"
@@ -24,6 +27,11 @@ DEFAULT_SERVER_ROOT = "/srv/music/library"
 DEFAULT_MEDIA_ROOT = "/mnt/servers/jellyfin/srv/music/library"
 DEFAULT_REVIEW_ROOT = "/mnt/servers/jellyfin/srv/music/review"
 DEFAULT_STALE_PREFIX = "/jellyfin/Music"
+DEFAULT_USER_AGENT = (
+    "TokyoMusicArtwork/2.0 "
+    "(https://github.com/iFanatical/tokyo-music-jellyfin)"
+)
+MAX_IMAGE_BYTES = 15 * 1024 * 1024
 
 
 class JellyfinError(RuntimeError):
@@ -54,6 +62,8 @@ class Jellyfin:
             raise JellyfinError(f"{method} {path} failed: HTTP {exc.code}{suffix}") from exc
         except urllib.error.URLError as exc:
             raise JellyfinError(f"cannot reach {self.base}: {exc.reason}") from exc
+        except (OSError, http.client.HTTPException) as exc:
+            raise JellyfinError(f"{method} {path} failed: {exc}") from exc
         return json.loads(body) if body else None
 
     def paged(self, path: str, params: dict, page_size=500):
@@ -71,7 +81,7 @@ class Jellyfin:
 
     def artists(self, library_id=None):
         params = {
-            "Recursive": "true", "Fields": "Path",
+            "Recursive": "true", "Fields": "Path,ProviderIds",
             "EnableImageTypes": "Primary", "ImageTypeLimit": 1,
             "SortBy": "SortName",
         }
@@ -109,6 +119,32 @@ class Jellyfin:
             params={"type": "Primary", "imageUrl": image_url},
         )
 
+    def upload_primary(self, item_id: str, image: bytes, content_type: str):
+        if not content_type.startswith("image/"):
+            raise JellyfinError(f"refusing non-image response: {content_type or 'unknown type'}")
+        if not image or len(image) > MAX_IMAGE_BYTES:
+            raise JellyfinError(f"refusing image with invalid size: {len(image)} bytes")
+        url = self.base + f"/Items/{item_id}/Images/Primary"
+        # SetItemImage decodes the request body with FromBase64Transform,
+        # despite advertising image/* in its OpenAPI request schema.
+        req = urllib.request.Request(url, data=base64.b64encode(image), method="POST")
+        req.add_header("X-Emby-Token", self.token)
+        req.add_header("Content-Type", content_type.split(";", 1)[0])
+        try:
+            with urllib.request.urlopen(req, timeout=60) as response:
+                response.read()
+        except urllib.error.HTTPError as exc:
+            detail = exc.read(500).decode("utf-8", "replace").strip()
+            raise JellyfinError(
+                f"POST /Items/{item_id}/Images/Primary failed: HTTP {exc.code}"
+                + (f": {detail}" if detail else "")
+            ) from exc
+        except urllib.error.URLError as exc:
+            raise JellyfinError(f"cannot reach {self.base}: {exc.reason}") from exc
+        except (OSError, http.client.HTTPException) as exc:
+            # The server may already have saved the image. Do not retry a POST.
+            raise JellyfinError(f"image upload failed: {exc}") from exc
+
     def item(self, item_id: str):
         return self.request(f"/Items/{item_id}") or {}
 
@@ -132,6 +168,143 @@ class Jellyfin:
         else:
             current = self.item(item["Id"])
         return bool(current.get("ImageTags", {}).get("Primary"))
+
+
+@dataclass
+class ExternalImage:
+    url: str
+    provider: str
+    musicbrainz_id: str
+    wikidata_id: str
+
+
+class WikidataArtistImages:
+    """Resolve artist images through explicit MusicBrainz/Wikidata links."""
+
+    def __init__(self, user_agent=DEFAULT_USER_AGENT, musicbrainz_delay=1.1):
+        self.user_agent = user_agent
+        self.musicbrainz_delay = musicbrainz_delay
+        self._last_musicbrainz_request = 0.0
+
+    def _request(self, url, *, json_response=True):
+        request = urllib.request.Request(url, headers={"User-Agent": self.user_agent})
+        for attempt in range(4):
+            try:
+                with urllib.request.urlopen(request, timeout=60) as response:
+                    content_type = response.headers.get_content_type()
+                    body = response.read(MAX_IMAGE_BYTES + 1)
+                break
+            except urllib.error.HTTPError as exc:
+                if exc.code not in {429, 502, 503, 504} or attempt == 3:
+                    raise JellyfinError(
+                        f"external metadata request failed: HTTP {exc.code}: {url}"
+                    ) from exc
+                retry_after = exc.headers.get("Retry-After")
+                delay = int(retry_after) if retry_after and retry_after.isdigit() else 2 ** attempt
+                time.sleep(min(delay, 30))
+            except (OSError, http.client.HTTPException) as exc:
+                # urllib can expose raw socket/HTTP errors during both open
+                # and read (including RemoteDisconnected and IncompleteRead).
+                # URLError is an OSError subclass and is handled here too.
+                if attempt == 3:
+                    raise JellyfinError(
+                        f"external metadata request failed after 4 attempts: {exc}: {url}"
+                    ) from exc
+                delay = max(2 ** attempt, self.musicbrainz_delay)
+                print(f"External request interrupted ({exc}); retrying in {delay:g}s "
+                      f"({attempt + 2}/4): {url}", file=sys.stderr)
+                time.sleep(delay)
+        if len(body) > MAX_IMAGE_BYTES:
+            raise JellyfinError(f"external response exceeds {MAX_IMAGE_BYTES} bytes: {url}")
+        if json_response:
+            try:
+                return json.loads(body), content_type
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise JellyfinError(f"external metadata returned invalid JSON: {url}") from exc
+        return body, content_type
+
+    def _musicbrainz(self, path, params=None):
+        wait = self.musicbrainz_delay - (time.monotonic() - self._last_musicbrainz_request)
+        if wait > 0:
+            time.sleep(wait)
+        url = "https://musicbrainz.org/ws/2" + path
+        if params:
+            url += "?" + urllib.parse.urlencode(params)
+        try:
+            return self._request(url)[0]
+        finally:
+            self._last_musicbrainz_request = time.monotonic()
+
+    def musicbrainz_id(self, item):
+        provider_ids = item.get("ProviderIds") or {}
+        existing = provider_ids.get("MusicBrainzArtist")
+        if existing:
+            return existing
+        name = (item.get("Name") or "").strip()
+        if not name:
+            return None
+        result = self._musicbrainz("/artist", {
+            "query": f'artist:"{name}"', "limit": 5, "fmt": "json",
+        })
+        exact = [
+            artist for artist in result.get("artists", [])
+            if (artist.get("name") or "").casefold() == name.casefold()
+            and int(artist.get("score", 0)) >= 95
+        ]
+        return exact[0].get("id") if len(exact) == 1 else None
+
+    def wikidata_id(self, musicbrainz_id):
+        artist = self._musicbrainz(f"/artist/{musicbrainz_id}", {
+            "inc": "url-rels", "fmt": "json",
+        })
+        ids = []
+        for relation in artist.get("relations", []):
+            if relation.get("type") != "wikidata":
+                continue
+            resource = (relation.get("url") or {}).get("resource", "")
+            candidate = resource.rstrip("/").rsplit("/", 1)[-1]
+            if candidate.startswith("Q") and candidate[1:].isdigit():
+                ids.append(candidate)
+        return ids[0] if len(set(ids)) == 1 else None
+
+    def commons_url(self, wikidata_id):
+        entity_url = f"https://www.wikidata.org/wiki/Special:EntityData/{wikidata_id}.json"
+        entity = self._request(entity_url)[0].get("entities", {}).get(wikidata_id, {})
+        claims = entity.get("claims", {}).get("P18", [])
+        filenames = []
+        for claim in claims:
+            value = claim.get("mainsnak", {}).get("datavalue", {}).get("value")
+            if isinstance(value, str) and value.strip():
+                filenames.append(value.strip())
+        if not filenames:
+            return None
+        data, _ = self._request("https://commons.wikimedia.org/w/api.php?" + urllib.parse.urlencode({
+            "action": "query", "format": "json", "formatversion": 2,
+            "prop": "imageinfo", "iiprop": "url|mime", "iiurlwidth": 1200,
+            "titles": "File:" + filenames[0],
+        }))
+        pages = data.get("query", {}).get("pages", [])
+        info = pages[0].get("imageinfo", [{}])[0] if pages else {}
+        return info.get("thumburl") or info.get("url")
+
+    def find(self, item):
+        musicbrainz_id = self.musicbrainz_id(item)
+        if not musicbrainz_id:
+            return None
+        wikidata_id = self.wikidata_id(musicbrainz_id)
+        if not wikidata_id:
+            return None
+        url = self.commons_url(wikidata_id)
+        if not url:
+            return None
+        return ExternalImage(url, "Wikimedia Commons via MusicBrainz/Wikidata",
+                             musicbrainz_id, wikidata_id)
+
+    def download(self, image):
+        body, content_type = self._request(image.url, json_response=False)
+        if not content_type.startswith("image/"):
+            raise JellyfinError(f"Wikimedia returned {content_type}, not an image")
+        return body, content_type
 
 
 def missing_primary(items):
@@ -249,10 +422,18 @@ def main() -> int:
     ap.add_argument("--token-env", default="JELLYFIN_TOKEN")
     ap.add_argument("--token-file", default=DEFAULT_TOKEN_FILE)
     ap.add_argument("--library-id", help="restrict work to one Jellyfin music library")
+    ap.add_argument("--name", action="append", default=[],
+                    help="process one exact item name (repeatable)")
     ap.add_argument("--limit", type=int, default=0,
                     help="process at most this many missing items (0: all)")
     ap.add_argument("--delay", type=float, default=1.1,
                     help="seconds between provider searches")
+    ap.add_argument("--fallback", choices=("none", "wikidata"), default="wikidata",
+                    help="fallback for missing artist images (default: wikidata)")
+    ap.add_argument("--musicbrainz-delay", type=float, default=1.1,
+                    help="minimum seconds between MusicBrainz requests")
+    ap.add_argument("--user-agent", default=DEFAULT_USER_AGENT,
+                    help="User-Agent sent to MusicBrainz and Wikimedia")
     ap.add_argument("--report", default="artwork-report.json",
                     help="JSON report written when --apply is used")
     ap.add_argument("--server-root", default=DEFAULT_SERVER_ROOT,
@@ -264,8 +445,8 @@ def main() -> int:
     ap.add_argument("--stale-prefix", default=DEFAULT_STALE_PREFIX,
                     help="obsolete Jellyfin path prefix to exclude")
     args = ap.parse_args()
-    if args.limit < 0 or args.delay < 0:
-        ap.error("--limit and --delay cannot be negative")
+    if args.limit < 0 or args.delay < 0 or args.musicbrainz_delay < 0:
+        ap.error("--limit, --delay and --musicbrainz-delay cannot be negative")
     if args.move and not (args.apply or args.probe):
         ap.error("--move requires --probe (preview) or --apply")
     if args.move and args.mode == "both":
@@ -280,10 +461,18 @@ def main() -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
+    if args.name:
+        wanted = {name.casefold() for name in args.name}
+        candidates = [
+            (kind, item) for kind, item in candidates
+            if (item.get("Name") or "").casefold() in wanted
+        ]
     total = len(candidates)
     if stale:
         print(f"Ignoring {len(stale)} stale item(s) under {args.stale_prefix}.")
     selected = candidates[:args.limit or None]
+    fallback = (WikidataArtistImages(args.user_agent, args.musicbrainz_delay)
+                if args.fallback == "wikidata" else None)
     print(f"Found {total} {args.mode} item(s) missing Primary artwork.")
     if args.limit and total > len(selected):
         print(f"Showing first {len(selected)} because --limit={args.limit}.")
@@ -303,6 +492,18 @@ def main() -> int:
                     found += 1
                     provider = image.get("ProviderName") or "unknown provider"
                     print(f"[{index}/{len(selected)}] found via {provider}: {label(item, kind)}")
+                elif fallback and kind == "artist":
+                    external = fallback.find(item)
+                    if external:
+                        found += 1
+                        print(f"[{index}/{len(selected)}] found via {external.provider}: "
+                              f"{label(item, kind)} (MBID {external.musicbrainz_id}, "
+                              f"{external.wikidata_id})")
+                    else:
+                        no_result += 1
+                        unresolved_probe.append((kind, item))
+                        print(f"[{index}/{len(selected)}] no provider or Wikidata result: "
+                              f"{label(item, kind)}")
                 else:
                     no_result += 1
                     unresolved_probe.append((kind, item))
@@ -337,10 +538,32 @@ def main() -> int:
         entry = {"kind": kind, "id": item["Id"], "name": label(item, kind)}
         try:
             image = client.remote_primary(item["Id"])
-            if not image or not image.get("Url"):
+            external = None
+            if (not image or not image.get("Url")) and fallback and kind == "artist":
+                external = fallback.find(item)
+            if (not image or not image.get("Url")) and not external:
                 entry["status"] = "no-provider-result"
                 unresolved.append((kind, item))
                 print(f"[{index}/{len(selected)}] no provider result: {label(item, kind)}")
+            elif external:
+                entry.update({
+                    "provider": external.provider,
+                    "source_url": external.url,
+                    "musicbrainz_id": external.musicbrainz_id,
+                    "wikidata_id": external.wikidata_id,
+                })
+                image_bytes, content_type = fallback.download(external)
+                client.upload_primary(item["Id"], image_bytes, content_type)
+                if client.primary_is_visible(kind, item):
+                    entry["status"] = "filled"
+                    filled.append((kind, item))
+                    print(f"[{index}/{len(selected)}] filled via {external.provider}: "
+                          f"{label(item, kind)}")
+                else:
+                    entry["status"] = "downloaded-but-not-visible"
+                    unresolved.append((kind, item))
+                    print(f"[{index}/{len(selected)}] uploaded but not visible: "
+                          f"{label(item, kind)}")
             else:
                 entry["provider"] = image.get("ProviderName")
                 client.download_primary(item["Id"], image["Url"])

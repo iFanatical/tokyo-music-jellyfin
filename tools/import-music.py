@@ -57,6 +57,9 @@ CONTROL_RX = re.compile(r"[\x00-\x1f\x7f]")
 def safe_component(value: str) -> str:
     """Return one readable path component with traversal made impossible."""
     value = CONTROL_RX.sub("", str(value)).replace("/", " - ").strip()
+    # Jellyfin ignores dot-prefixed directories. Keep the original album tag,
+    # but make names such as "...And Justice for All" visible on disk.
+    value = value.lstrip(".").lstrip()
     if value in {"", ".", ".."}:
         raise ValueError("empty or unsafe path component")
     return value

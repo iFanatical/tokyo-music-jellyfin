@@ -112,6 +112,9 @@ reads embedded tags, normalises conservative multi-artist conventions, rejects
 missing or conflicting metadata, and plans an `Artist/Album/original-file`
 destination. A multi-artist compilation with no album artist is filed under
 `Various Artists` without changing its deliberately empty `ALBUMARTIST` tag.
+Leading ASCII dots are removed from destination folder/file names so Jellyfin
+can index them: the album tag `...And Justice for All` is preserved, while its
+folder is named `And Justice for All`.
 
 It is always a dry run first:
 
@@ -154,6 +157,25 @@ tools/fill-missing-artwork.py artists --apply
 tools/fill-missing-artwork.py albums --apply
 tools/fill-missing-artwork.py both --apply --limit 25
 ```
+
+Artist searches first use Jellyfin's configured image provider. If it returns
+no result, the tool conservatively follows an exact MusicBrainz artist match to
+its explicit Wikidata record and uses the record's Wikimedia Commons image.
+Ambiguous names are skipped rather than guessed. The source URL, MusicBrainz
+ID, and Wikidata ID are retained in the JSON report. Disable this fallback with
+`--fallback none`, or target specific artists with repeatable exact names:
+
+```bash
+tools/fill-missing-artwork.py artists --probe --name Skillet
+tools/fill-missing-artwork.py artists --apply --name Skillet --name "DC Talk"
+```
+
+MusicBrainz requests are kept at least 1.1 seconds apart and transient service
+errors are retried. Set `--user-agent` if you deploy your own copy and want its
+contact URL reflected in requests.
+
+Image uploads use Jellyfin's Base64 request-body format. Connection failures
+are reported per artist after bounded retries, allowing the sweep to continue.
 
 The URL defaults to `http://jellyfin.bush.home.arpa:8096`. Searches use
 whichever artist and album image providers are enabled there. The tool reports
@@ -218,6 +240,9 @@ ssh -t jellyfin.bush.home.arpa 'sudo bash -s' < tools/backup-jellyfin.sh
 album/artist/genre/playlist detail pages. Sorting is per-view and remembered.
 Large lists page in on scroll.
 
+Search matches song/album titles and includes the songs and albums of matching
+artists, with up to 24 results per section. Open the artist page for its catalog.
+
 **Play** — Persistent player bar, queue panel with drag-to-reorder, shuffle,
 three repeat modes, seek, volume, and OS media-key support via the Media Session
 API. Playback is reported to Jellyfin, so play counts, resume and "recently
@@ -245,8 +270,43 @@ server transcode instead.
 | `/` | Search |
 | `?` | Shortcut list |
 
-Mouse wheel over the volume control adjusts it in 5% steps (hold `Shift` for 2%).
-Scrolling up while muted unmutes.
+The enlarged volume fader is centered on **0 dB (original audio level)**. Click
+the `0 dB` label to reset to center. Left attenuates smoothly to silence, with
+gentle adjustments near center; right requests up to **+6 dB** boost. The readout
+shows decibels rather than percent. Wheel/arrow adjustments use 1% of fader
+travel; hold `Shift` for 0.25%. Dragging continues outside the control, and
+canceled gestures keep their last position. Scrolling up while muted unmutes.
+
+Click the dB readout to enter an exact value (for example, `-36`, `0`, or `+3`).
+Enter or leaving the field applies a valid entry; Escape cancels. Numeric entry
+accepts **−96 through +6 dB**. Invalid values, including `34`, do not change the
+level; Enter displays a range warning. The mute button still gives silence.
+Below 981 px wide, a volume button opens the full control above the player;
+Escape or clicking outside closes it. Neighboring controls have 42 px buttons,
+and seek/volume sliders share 8 px tracks and 36 px interaction areas.
+
+Audio gain changes are smoothed over 25 ms. At/below 0 dB, a clean audio path
+bypasses compression (with a 6 ms alignment delay). Boost uses native Web Audio
+peak compression and up to 1.3 dB safety trim; the readout is requested gain
+before protection, not a guaranteed increase in loudness. Already-loud tracks
+may be limited instead of getting louder. This is not a true-peak limiter and
+cannot repair already-distorted recordings or overdriven speakers/OS output.
+Choose your comfortable OS/speaker level with the fader at 0 dB.
+
+Saved settings from the previous cubic curve migrate by output gain, avoiding
+a sudden increase on refresh (old maximum becomes the new center). Browsers
+without Web Audio fall back to attenuation/unity without boost. Processing uses
+native audio nodes and works on the existing HTTP LAN origin, with Jellyfin's
+CORS-enabled audio streams. See the [Web Audio specification](https://www.w3.org/TR/webaudio-1.0/)
+for gain, media-element routing, and compressor behavior.
+
+Volume regression checks: `node tests/test_player_volume.mjs` and
+`node tests/test_volume_entry.mjs`. Run `python3 serve.py --bind 127.0.0.1 --port 8099`
+then `CHROME_BIN=/path/to/chromium node tests/test_volume_browser.cjs` for browser
+checks of audio, dragging, numeric entry, and the compact popover. The
+`tests/volume-browser.html` fixture exercises the real browser audio graph and
+player bar; its `renderAudio()` and `checkPlayback()` helpers support offline
+signal and media-playback checks without accessing the music library.
 
 ---
 

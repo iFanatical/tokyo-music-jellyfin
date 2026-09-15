@@ -115,7 +115,7 @@ function startApp() {
   };
 
   document.addEventListener("keydown", (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
 
     if (e.key === "/" && !typing(e)) {
       e.preventDefault();
@@ -151,11 +151,11 @@ function startApp() {
         break;
       case "ArrowUp":
         e.preventDefault();
-        player.setVolume(player.volume + 0.05);
+        player.setVolume(player.volume + (e.shiftKey ? 0.0025 : 0.01));
         break;
       case "ArrowDown":
         e.preventDefault();
-        player.setVolume(player.volume - 0.05);
+        player.setVolume(player.volume - (e.shiftKey ? 0.0025 : 0.01));
         break;
       case "n":
       case "N":

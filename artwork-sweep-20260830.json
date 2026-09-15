@@ -1,0 +1,1720 @@
+[
+  {
+    "kind": "artist",
+    "id": "c3e099fbbde58d0b2dcd9ced59fb431d",
+    "name": "$Not",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "69c81bbd8789afaaf7c0dc29ffaac19d",
+    "name": "Aaron Cole",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/69c81bbd8789afaaf7c0dc29ffaac19d failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "17070d27c0038796a93243b675747a2c",
+    "name": "Aaron Marshall",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "419c828dc8fbdc593d62b7b937f1e787",
+    "name": "Ab-Soul",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/419c828dc8fbdc593d62b7b937f1e787 failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "d9c8171ea41613932b6ee379b2384767",
+    "name": "Ahjah",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "89d6e2931d9313eb77e405d7ef20e906",
+    "name": "Al Be Back",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f92deebec8e919edc0dfddd791980286",
+    "name": "Albee Al",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "46125de7ad3f530d5a87c2f957aca6a9",
+    "name": "ALESSIO MANZI",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "1a6275445aede883eb1efb71510a8c57",
+    "name": "Amanda Cook",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "33710c664fac744a1322999847f15e70",
+    "name": "Amelia Moore",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "6f024c395838e5c9d71ba94fb633ea08",
+    "name": "Anderson .Paak",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/6f024c395838e5c9d71ba94fb633ea08 failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "b644cc8c2e43f068e269e8dc0b3fab1a",
+    "name": "Anike",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/b644cc8c2e43f068e269e8dc0b3fab1a failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "190cbe055d4c19ff50ce233534109a1f",
+    "name": "Anthony Fantano",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "179a105d2621a5aae0481a78588ae930",
+    "name": "Anthony Martinez",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "bad6a531f3e4251d32f4992de6e3cc5a",
+    "name": "Arcane",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "5d918de50379ae299e72eb272aa3d925",
+    "name": "Arrows in Action",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "4f5949906f617e5af3d031cae23a126d",
+    "name": "Ashley Barrett",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "979f62c303a7911460d5115a1271dd76",
+    "name": "Ashtro Bot",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "2083521a8b6feae5d749235ea074df82",
+    "name": "Asmongold",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "42da6455e857be283b58f8f324415303",
+    "name": "ATOMIC PULSE",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "8ccb4ba6372406b9abc047d6ff5f3401",
+    "name": "AZ Chike",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "10de9e854ac1375e07639817072fd54f",
+    "name": "Babes Wodumo",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "a6ff0364ba5fc87c2404a44397c7305c",
+    "name": "Becky G",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/a6ff0364ba5fc87c2404a44397c7305c failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "d2a9f838195bf5f5a1ff8288997fbe21",
+    "name": "Bella Cordero",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "4bc59fbc408cc0c2de0984bb556b9fac",
+    "name": "Bishop Brian Moore",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f3319994f79dc9fe77449552a0727daa",
+    "name": "Bishop Nehru",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "fc835fddad53216b4d85f326373bc7cf",
+    "name": "Bjorn Speed Strid",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "0fc20ca0fcbba20645ade574f65b5edd",
+    "name": "Blxst",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "9f67a3515a4f2cf4e8b3713cd44d15e1",
+    "name": "Brandan Schieppati",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f328c76f54b0007999dc0d41082b63e0",
+    "name": "B-Real",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/f328c76f54b0007999dc0d41082b63e0 failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "fa0a77ac62feb663ecf73b4b8c3e623c",
+    "name": "Brendan Angelides",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "8ae0b2863183d724e742e645d0a4e837",
+    "name": "Brittany Aldean",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "4535fabc589f0420722102564de75033",
+    "name": "Broadhurst",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "3bb6a935eed4b89f70c6bd588b77f0d7",
+    "name": "Brux",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "8d51e92c41f7eff85b3e27113ec60fa0",
+    "name": "Bryan Garris",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "6d09b65eb2ee08ffa78eefd0ad99a154",
+    "name": "CAIN",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "24a5eeb2e368662afa6cb127bb292cc2",
+    "name": "Caleb Shomo",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f77f8074123a2d05bd7200b9546c453b",
+    "name": "Cartel Lb",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "5b95bab040c54340a901eed9738ba9d8",
+    "name": "Cash Cobain",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "a28e01d7ef6c1d675280298c32917dbd",
+    "name": "Centricity Worship",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "8968cc34e56d730708a784959812f512",
+    "name": "Chandler Moore",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "56c0b1588f9d04d947cfd0df226e1444",
+    "name": "Channel Tres",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "c298ecdc710c3b2a07bbf96b7f50ca56",
+    "name": "Cheval Sombre",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "aed49da4e7a658e96117bc7dcc715b75",
+    "name": "Christine and the Queens",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/aed49da4e7a658e96117bc7dcc715b75 failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "f1c193cecc6813845d82b69c518d766a",
+    "name": "Christine Hoberg",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "dc7d45d4724e061e8d8a2ed588d1db5d",
+    "name": "Citizen Soldier",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "7e9a13ae1df24b6d4c7d7f3cb0987c1c",
+    "name": "Cody Carnes",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "c9d092ea356f724de698363bd6e92cf3",
+    "name": "Cofer",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "8d89c8d6f27ababb88f2c7a1242e88b2",
+    "name": "Colin Munroe",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "e2893e8f252bff67545ecd241f79dd6a",
+    "name": "Colouring",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "a255ee6484472633b232fd3a4e3b743d",
+    "name": "Constera",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "d8fc459907002f6f8f956def0722d55f",
+    "name": "Co-Pilots",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f2d24aee1c3c0030ad36a00fe140b1c0",
+    "name": "Coyote Theory",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "c8afc9dfc66cf597d4679dbd6bd0bcf5",
+    "name": "Cremaine Booker",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "122e3ca8fba7ce909bf398f1010f9e14",
+    "name": "Cyclops",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "15071036f3dca31c22dbf2ec12d55941",
+    "name": "daisuke kurosawa",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "eda86ec685caa9a86260e170a9c56cbc",
+    "name": "Dan Swank",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "5bc78abd106bfc92f4e9bda778397cb0",
+    "name": "Dani Filth",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "5b7a995b7f9277a9ea6ffeffcbb648c0",
+    "name": "Daniela Lalita",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "1189cc1fe00d1839c0b3871ec5b4ee07",
+    "name": "Dante Bowe",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "0fedfe14566b5bd2934d3daf9c55ebe2",
+    "name": "Dark Divine",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "126330d8096cdaca38c8d7bbfd17ec1b",
+    "name": "Dave Bixby",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "1875a80af3b2cff175675983e5f41bdc",
+    "name": "David Andrew Sitek",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "50c15838a0aa64f08b8142765874a1a1",
+    "name": "David Bowie & Mick Jagger",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "5b8555279c9e9550a78076c0cb869892",
+    "name": "David Bowie & Pat Metheny Group",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "95ecae43d41a08ebf76a6291bea996c7",
+    "name": "David Leonard",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "4be85c2be57410d22954c73c6d1ebe65",
+    "name": "David Ryan",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "676c3da5adeaf695b5907fb7d6dbe5db",
+    "name": "Davide Mutendji",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "7ee8410a75df326508b984c3d61b1fa4",
+    "name": "Daydream Masi",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "791aeca8bfb1531ceb50ff18a133407f",
+    "name": "Dexter and The Moonrocks",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "208df56d8fea6d650d6147cecc73cff4",
+    "name": "The Dharohar Project",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "4071fd7b4f9da641bc333260d3270baa",
+    "name": "Dio",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/4071fd7b4f9da641bc333260d3270baa failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "37a37c5c193720ea1eb58e208c2fa4f2",
+    "name": "Divinity",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "e560a74058c6d80b39cc367cc1b450e8",
+    "name": "DODY6",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f1428bb5367ba1a88c3638d66c3402ee",
+    "name": "DRAMA",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "9227647bda06bf4eb310900fe363bef0",
+    "name": "Drama Relax",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "e6427c168a9333327a12f3c8e82299a8",
+    "name": "The Drunken Apaches",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "b94084aba84cff7b41de21caddc0f653",
+    "name": "Druski",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "22dd62cd82c8b3ba583296fe26a25f1d",
+    "name": "Dvno",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "9617c8504688ea918e119d967a1006fb",
+    "name": "Eddie Benjamin",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "7a0dbbc3512ba28675d46e58bd01691d",
+    "name": "Egocheck",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "90b58bb046b37f6e10cafcec7337e185",
+    "name": "Elevation Choir",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "24ba12f0ac9828e31b5950d0db195775",
+    "name": "Elevation Collective",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "49e31e71c15c2ef36a6e9940b0a4602e",
+    "name": "Elevation Español",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "dd3426a019408b6ad1d7d5b69ede69bc",
+    "name": "Eli Soares",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "13b7a17f7ca274dbdb0a36b00c14357d",
+    "name": "Embark Studios",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "861ea627a89651175a2e96be6ce7cb65",
+    "name": "Eminem & Bizarre",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "9fdbc57e40f3fde8c11c581df93d43b2",
+    "name": "Eminem & Dido",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f2b873fbc1c3be1582474aaa15c51a47",
+    "name": "Eminem & Nate Dogg",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "257f8c09fcda76e7bc3be1b4ee02fab0",
+    "name": "Erick Hansel",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "7bf2c3cae22c7499fa765107b5dbba35",
+    "name": "Espanto",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "9f44f4e3e1b754b92406ed7fb21872dc",
+    "name": "Evan Craft",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "5fd9b257fd9643471fa3ebdde7e8b4c7",
+    "name": "The Flints",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "7b8811209163f53a4a2e9886d5d59406",
+    "name": "Franni Cash",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "7bbd5e226a9ab60a0889faba65feae91",
+    "name": "Franz Karafka",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "742c4074f67b0a470a04c711e03084b2",
+    "name": "French Montana",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "5a665abe2e2f6a129356b7f5441cff2e",
+    "name": "Gareth",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "ab0e0f22757ee1514c99ec348ad3a816",
+    "name": "GATA",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "1299019dca6a679e97a055810d483aa0",
+    "name": "George Barnett",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "749f3ee2f3fe0ed27782a45e4b24b591",
+    "name": "George Maple",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "5dc78de344dd80ddaae0b07a55d2fcff",
+    "name": "Ghøstkid",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "7b0f7fe481421c2bfc7000905a823134",
+    "name": "The Go-Go's",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "1414762002520a044ff0f2e398d180c5",
+    "name": "GREYLEE",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "4397b6ca3da7da14e977c9940942d4bf",
+    "name": "Halo",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "2d264709e6d28e79070af41c36b8151f",
+    "name": "Harrd Luck",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "ceed08407c3add1c9e959178bce7f648",
+    "name": "Harvest",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "b70fa8d689a5bd0dc4744c28d3f472c6",
+    "name": "Hitta J3",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "37848bc768c96dd28d4389894010ac4d",
+    "name": "HIXTAPE",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "37c6bd384bc8eb2d1a1e27c1876ff6c7",
+    "name": "House Party",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "ae65e593357b9094f7e32f49a60b635f",
+    "name": "Howard Roberts Chorale",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "deac6f46c012047f5bb96f019da508a7",
+    "name": "Howeh",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "96a2f5666db133dad5b727fb925967f8",
+    "name": "Human Touch",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "a60a95032a1f1539ae3068125ee9ab52",
+    "name": "Hurricane Chris",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "b06b57720291f840016eb55f783d64ec",
+    "name": "Ichika",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "9b0693bcb563a2bc0c149f07334f91f5",
+    "name": "Iggy Pop",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/9b0693bcb563a2bc0c149f07334f91f5 failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "74ff072e78a24dacf5ba87dff438f4d1",
+    "name": "INOHA",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "1fdc3e5fdb07ba96aa78e48879992320",
+    "name": "Isaiah Templeton",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "9242d67710e5ee09f9463cac801b5e89",
+    "name": "Jake Clemons",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "017e542afe1c8f316f72af17c8129d40",
+    "name": "Jakub Żytecki",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "6268f4dd425a3fcf173106768fca86a9",
+    "name": "James Blake",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/6268f4dd425a3fcf173106768fca86a9 failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "8492984292235173a09433c792279da1",
+    "name": "James Curd",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "57758ea2a96ea1c7311ab9c0269dd3c4",
+    "name": "James Duncan",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "6c76fccc09ee770ea4eb2612e01421e2",
+    "name": "James Mercer",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "7c443e7daa713a5f327ee34855fdc7ff",
+    "name": "James Michael",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "0406ad25fc24a005997b7864415b2153",
+    "name": "Janine Berdin",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "27310e4aac0799d7f5346e710e333f5f",
+    "name": "Jason Richardson",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f72a9f47c30a678be5ad0523d337ee95",
+    "name": "Javonte",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "bbff4bdc5cf40092d0d91f828de28675",
+    "name": "Jenna Barrientes",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "89642424dc0e3c80f2ad406bf195d31c",
+    "name": "Jeremih",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/89642424dc0e3c80f2ad406bf195d31c failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "76a1d47ae1c415e729bb4a9d1df943b5",
+    "name": "Joe L Barnes",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "2af02c2afcb4371763ffbfa90a114c9c",
+    "name": "Joey Fatone",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "a94d7e3ed6c8e613d134ba35c2349d95",
+    "name": "Jonathan Davis",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "944f29c76ce3863504872f22398e2562",
+    "name": "Jonsal Barrientes",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "9a9291d7a806ff26aa94d41d6beb6aa0",
+    "name": "Jónsi",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "038422c1c438b1e3f93a3699d2fc0984",
+    "name": "Jordy Felix",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "ed5da9488c8aca88314e47d312f38d39",
+    "name": "Joshua Aaron",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "c04d94ea312b6a09c9b8ebea086d6b1e",
+    "name": "Juicy J",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/c04d94ea312b6a09c9b8ebea086d6b1e failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "0ed1e6f2fa817cce7d54bcb591e3cecb",
+    "name": "Julia Wolf",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "00cf02a39e0600019af3d6a801308ce6",
+    "name": "Justin More",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "fb833035a1d0d6249f8ebdce37dc4475",
+    "name": "Justin Wade Tam",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "22faa3c10618ceb0532c2f2c600661b1",
+    "name": "Kari Jobe Carnes",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "bb24a64d899a391ef8e930b4c32ea0f5",
+    "name": "Katie Noonan",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "e12bc7216fd8a1db69724f83234ad2c2",
+    "name": "Katy Nichole",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f19bd84529699bd0774b87b586ffc85a",
+    "name": "Keanu Bicol",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f94f6776f7dc24c443e5c25d7aa301e2",
+    "name": "Killstation",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "ad4f5cd83f22832c2ba14235e289c3e2",
+    "name": "Kim Richards",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "7ffbdf579ada2991290ed384a2b61e8d",
+    "name": "Koaster",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "51dea7e3e7931a1649ac07940f3326d1",
+    "name": "Kurt Kristen",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "10068fc410f35ddc1f2f35a78944e5eb",
+    "name": "Kurt92",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "605236749ab15881cb7859abbef0d642",
+    "name": "L-Boy",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "1320e1e5c537a66bb2035d3767e609a1",
+    "name": "League of Legends",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "e0f2953ad75e0dcd968f6714a43a6e11",
+    "name": "Leeland Mooring",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "0c8d889188ffd690f0c83b2a8d0d9475",
+    "name": "Lefty Gunplay",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "8d6e5f309ac7379309f67d085dc421ed",
+    "name": "Leon Else",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "ebb3c26f286d137a401255c1ea37ec6b",
+    "name": "LIL Aaron",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "d5cb14c74776d55c639d3dd7539ede0e",
+    "name": "LIL DUSTY G",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "215d1a92b7db07f21ada9fae7521cc1a",
+    "name": "Lil Mama",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/215d1a92b7db07f21ada9fae7521cc1a failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "118ee596eeff54e1c71440f68ffac557",
+    "name": "Lil West",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "174a24a0f73e7d3484226b9ff169ea43",
+    "name": "Limbo",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "e3c1bcc2370291d5ad12b19bf60de502",
+    "name": "LIN D",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "d40c9ea0d4c0a7563132b88ebbbaed55",
+    "name": "Lindsay Schoolcraft",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "93731bf093674bf9d3a21cac85077f6b",
+    "name": "London Symphony Orchestra",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/93731bf093674bf9d3a21cac85077f6b failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "f820dd5f3cab8ea0b5445cdedeff05ae",
+    "name": "The Lowbrows",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "000d3c92b10bd2ddd59d8dad32ffb074",
+    "name": "M80",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "57f9c12c99644a28f10b83d13f5e5a4b",
+    "name": "Machine Gun Kelly",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "ed3f9bfed6d59d5de655d51b4bb2d46a",
+    "name": "Madison Ryann Ward",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "99bfaabb4b97f20f3db1e4b4503c5e75",
+    "name": "MADMONQ",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f721bd47a99cf4d6540f9ae8a99ea5c0",
+    "name": "Magik Johnson",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "c6086bfe7c0e92ef108440e38eeffb71",
+    "name": "Marcos Witt",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "6e8b4583ccc1e93158a10e690e79c292",
+    "name": "mario camarena",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "df0143dd413e2a27e4313a9d30e6dd30",
+    "name": "Mark Fry",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "06f243deb1a9d98e0b577813d45c9cf5",
+    "name": "Marvin Winans",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "a7389b76db96ddcd145e297d3bf879ab",
+    "name": "Masahiro Aoki",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "c35a4a0b056c1791653cfd87c33c5423",
+    "name": "Mateus Asato",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "ef70278a147a11e949791acb2768f047",
+    "name": "Max B",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "0f982cf9fd717feb4abfc276139c8d51",
+    "name": "Megan Woods",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "672626641bf8c44795cd0ab479b7a6ae",
+    "name": "The Meister Girls",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "42e13baa6dc26a87ce525148ceccc347",
+    "name": "Micah Tyler",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "ee964cb1b27fa3e4bd44f4eff148f0ca",
+    "name": "Micah Tyler",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "02f1748e85219f55e893a0807ce3fa99",
+    "name": "Michael Vampire",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "bfeb266586821414423de19c4310c94a",
+    "name": "MiKroMaKro",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "219e8820e1aa3783ed921ba02969c488",
+    "name": "Miller Anderson",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/219e8820e1aa3783ed921ba02969c488 failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "8827cc2e4da7a7df7ee58f1a527febe4",
+    "name": "Mirson",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "a46f5006c9bfb404e84d46d17bb7ef6e",
+    "name": "Mitch Jones",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "2bafb66b794ff67349d9a21c6ffa948d",
+    "name": "Mitch Wong",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "702acd1a998b304e4664099fab160e91",
+    "name": "Monty Are I",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "3619675398eecdeea1270503e1b4cde3",
+    "name": "Mos Def",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "2e336eab07284c9b7325c1fc2343b0cd",
+    "name": "Mosaic MSC",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "16737a0b7eb26f45443759dc7de9a802",
+    "name": "Mozzy",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "05f0b9c20e4d8c4e9df648e845f4386b",
+    "name": "Naomi Raine",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "893f451614cc8b2f0a025a28ebda2c89",
+    "name": "Neal Carpenter",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "e5b162b6917061b87817165218c92308",
+    "name": "Neue Philharmonie Frankfurt",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "bb4a8922511e73af44ab5a78d9235621",
+    "name": "Nick Sampson",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "0f77aa972f921b36c6a2b56d791f7623",
+    "name": "Nirva Dorsaint",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "baffa5faeb3247a51cfa7a0985940dde",
+    "name": "Nitt da Gritt",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f784f3f7341fba9c9146adc60893a440",
+    "name": "NoMBe",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "ab1bc8ebbaa80cdf05cf07a281910447",
+    "name": "North Point Worship",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "394b86d921d1bdd002aca1ed4161e6f1",
+    "name": "Ongakuu",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "994766bdf3e24a3510dccdb530b50b6b",
+    "name": "Only Fire",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "2b23747958741a22a64514958da2d876",
+    "name": "Opossom",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "6019e2dec08d9eee9b84e7d4c551d6bf",
+    "name": "Oskama Esteban",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "a15fe7514247642ec7942a9749173dfc",
+    "name": "Oto Nemsadze",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "521ea1ea4f801a74ecd962e4fa3f95eb",
+    "name": "Parade Of Lights",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "24004e659aec40a01ded4fd8d9c0d17b",
+    "name": "Pat Barrett",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "02b860e8045051056bfca6d234bcdee9",
+    "name": "Paul Morley",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "df1d2a732cf9f40a88802729053ca84d",
+    "name": "Pauline Anna Strom",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "770f868c2fecc4099928a2036017ff64",
+    "name": "Permanent Me",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "4d9179dd0fbee14954b855310cbc1154",
+    "name": "Pettidee",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "16f715c8b4945c3e9823ccf41b0e31c2",
+    "name": "Peysoh",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "19fc0390c1048563d53bc27b3b28b4de",
+    "name": "The Photo Atlas",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "d59b7daa29cd790e25f54cf7f3ad9792",
+    "name": "PlayRadioPlay!",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "3a7871b0229f2492dd0499605937eb6c",
+    "name": "Point North",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "048ad2cedbeffe6c68dc1aeada869c0f",
+    "name": "Press Play",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "acee8fd243ebee6c838a02d678b092fc",
+    "name": "Quentyn",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "fdbf32a423869449e8be68220aa3bf23",
+    "name": "Rave Jesus",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "da38ebe94cccd56a2177dc33a89b9b8c",
+    "name": "Really Doe",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "84241b83fb904e1a4b9d22cb5e7ee35d",
+    "name": "Reason",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "c4018af4b69561fe855977b6aad1ed40",
+    "name": "RIMON",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "1808ab07e48d34368a79b4a693867f4d",
+    "name": "Ritchie Blackmore & Ian Gillan",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "7878a873ad610ab95c91c41147a7e97d",
+    "name": "Rob McCoy",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f266c8b66fde7640673dde9641eb70a1",
+    "name": "Robbie Seay Band",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "163bf710b8ae5e7d7bdecdfee996d992",
+    "name": "Roger Joseph Manning, Jr.",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "2ece4f6737c119e70edd49f3214f45bb",
+    "name": "sace6",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "a4f6954c67478a1e89242770a2e06c21",
+    "name": "Sailor & I",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "7d29d7734db24587b7f1ae759cbdcb87",
+    "name": "Sanctuary Lipscomb",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "6145923470ffa377464b7c9deb79c8ca",
+    "name": "Saudi",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "134f61b75b7e94bbf4f267f3ca40ae4e",
+    "name": "Sean Garrett",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "d49c3a0cf31277489f3b82ea2cee08da",
+    "name": "senses",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "ca7cf686e3f2da87809fd25d68f626d9",
+    "name": "Shane & Shane",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "73cca606770bb3a159bf35d6766392b8",
+    "name": "Sierra Deaton",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "8ce406c8e774f43fb305ffe627a14b26",
+    "name": "Sierra Ferrell",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/8ce406c8e774f43fb305ffe627a14b26 failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "4b8549af6c991557e71d185b082aee64",
+    "name": "Siete7x",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "735d3b58e69a06f7b588a075f0d65fb0",
+    "name": "Siti Monroe",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "ee00d80bec598ec29b15a18558241ae6",
+    "name": "SixTrez",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "796bdec04ff6a3a566f963e9fb8c7905",
+    "name": "Sjava",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "c021583893fb54a086f82a8c4dcda081",
+    "name": "Skillet",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "25d3fb8e3414df765db8e8b573c52395",
+    "name": "SOB X RBE",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "1d97bd000bfdb7cb3236a77856cc98c1",
+    "name": "SON.",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/1d97bd000bfdb7cb3236a77856cc98c1 failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "0b8375cf8b522180c6039ec94627b7a4",
+    "name": "Sophia Black",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f36518fe987615472ea4d4f4faacdb38",
+    "name": "Sordiway",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "a63b0e2697e573a3671d02865163086e",
+    "name": "The Sound of Arrows",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "7d7ae08f176b5a48f8b39a34535e01f9",
+    "name": "Spencer Charnas",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "7dd4554f0e4155fb54f13e67f2c5a170",
+    "name": "Stee Downes",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "01d0859e36564fac0d574f42ac4602d1",
+    "name": "Steve Morris",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "bc6c85c16e69645cbdbf8414bf75966e",
+    "name": "Steve Morse Band",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/bc6c85c16e69645cbdbf8414bf75966e failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "6270c46322862b563d8ae84032a40d37",
+    "name": "Steven Furtick",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "34009ae0bd9d655be767154aacd8e1a6",
+    "name": "Super Duper",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "16de4501eb60341d01293306c60aa59d",
+    "name": "Surahn",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "faf8b8d06f65031d6dc70fb91eb3c101",
+    "name": "SVRCINA",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "fabc83ae6b8d03f6acfbe7f3177ebf8e",
+    "name": "Tanna Leone",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "8f9efa13d5f0d5abaae463ec7c0d6376",
+    "name": "Taylour Paige",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "58163889c3d1e0692eba87a3fa63a64e",
+    "name": "Tiffany Hudson",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "3ff424adfde8791ffa6b62e8fc39bf95",
+    "name": "Tori Elliott",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "9f172de8b54fe3b8d43d0fa923a20aff",
+    "name": "Trash Boy",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f2fe074307a9b2cf2ea4f7d2a9f2fcce",
+    "name": "Trevor Friedrich",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "ad25162117bf6b652f4540132b3e7791",
+    "name": "Tricia Baumhardt",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "bcb8f5f63aa1581648f0482c88903b86",
+    "name": "Tyler Carter",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "2bb25b2819668a0c178f9dab63f20299",
+    "name": "Uli Jon Roth",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/2bb25b2819668a0c178f9dab63f20299 failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "61f40c63566b1111625cdf95c33b9e0c",
+    "name": "UNSECRET",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "4359ecccac0b6ebac6ac2739e5d18127",
+    "name": "Valley Boys",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "e098960d2f956e6fa1c61a376cebb5b9",
+    "name": "Valora",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/e098960d2f956e6fa1c61a376cebb5b9 failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "a3e0883886641f7e59602d7dddd1354f",
+    "name": "VAVO",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "68c80e9c462f0999393858e62174af0c",
+    "name": "Vince Staples",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/68c80e9c462f0999393858e62174af0c failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "7cd44c7cfdaaeeea5d32270a441b92fc",
+    "name": "Wallie the Sensei",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "f79d497870d5d9cbdb04014761fb2a45",
+    "name": "The Walls Group",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "0b92ffe03b062a1dd3013a109b065974",
+    "name": "WANDAI",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "511ce68f028de48a3d13f1c139e74db8",
+    "name": "The War and Treaty",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "4694a0832c215fe6411bda018b4078a8",
+    "name": "The Wedding Band",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "a1b95e7ae4766eb861311461bcfed8b5",
+    "name": "Wesley Schultz",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "9aa0a435871423a8941c39a571abc4e6",
+    "name": "Will Taylor (UK)",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "22796174895db97f95850b5860a0b588",
+    "name": "Ymanie",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "79f81264b8f457caccd229431c49b730",
+    "name": "Young Magic",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "1c5b636bcfecc5bfecd6e32542cfc46a",
+    "name": "YoungThreat",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "866f211c3a0868f25473d2f17f8c3f78",
+    "name": "Your Smith",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "9bc5f8103ef6bbb2f9226489bc2026d5",
+    "name": "Yugen Blakrok",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "3e40386028cbaccb002a3eec7b3913b5",
+    "name": "Zacari",
+    "provider": "TheAudioDB",
+    "status": "error",
+    "error": "GET /Items/3e40386028cbaccb002a3eec7b3913b5 failed: HTTP 400: Error processing request."
+  },
+  {
+    "kind": "artist",
+    "id": "2efa6d509ef1e8a00a74410669c3801d",
+    "name": "Zack",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "8f8c4e04288fe143149eecc7b6b58f6c",
+    "name": "Zane Lowe",
+    "status": "no-provider-result"
+  },
+  {
+    "kind": "artist",
+    "id": "a7166304a26a08808d1b7e1bdeee0e1d",
+    "name": "Zoogang",
+    "status": "no-provider-result"
+  }
+]

@@ -1,10 +1,14 @@
 import importlib.util
+import base64
+import http.client
+import io
+import json
 import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 SCRIPT = Path(__file__).parents[1] / "tools" / "fill-missing-artwork.py"
 SPEC = importlib.util.spec_from_file_location("fill_missing_artwork", SCRIPT)
@@ -14,6 +18,89 @@ SPEC.loader.exec_module(MODULE)
 
 
 class ArtworkTests(unittest.TestCase):
+    def test_upload_sends_base64_image_with_image_content_type(self):
+        image = b'\x89PNG\r\n\x1a\n\x00\xff'
+        with patch.object(MODULE.urllib.request, "urlopen") as opened:
+            MODULE.Jellyfin("http://example", "token").upload_primary("abc", image, "image/png")
+        request = opened.call_args.args[0]
+        self.assertEqual(base64.b64decode(request.data, validate=True), image)
+        self.assertEqual(request.get_header("Content-type"), "image/png")
+        self.assertEqual(request.get_method(), "POST")
+
+    def test_external_disconnect_retries_then_recovers(self):
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.read.return_value = b'{"relations": []}'
+        response.headers.get_content_type.return_value = "application/json"
+        fallback = MODULE.WikidataArtistImages()
+        with patch.object(MODULE.urllib.request, "urlopen", side_effect=[
+            http.client.RemoteDisconnected("connection closed"), response,
+        ]) as opened, patch.object(MODULE.time, "sleep") as sleep, \
+                patch("sys.stderr", new_callable=io.StringIO):
+            data, _ = fallback._request("https://musicbrainz.org/ws/2/artist/test")
+        self.assertEqual(data, {"relations": []})
+        self.assertEqual(opened.call_count, 2)
+        sleep.assert_called_once_with(1.1)
+
+    def test_external_read_failures_exhaust_retries_as_jellyfin_error(self):
+        for failure in (http.client.IncompleteRead(b"partial", 20),
+                        TimeoutError("read timed out"), ConnectionResetError("reset")):
+            with self.subTest(failure=type(failure).__name__):
+                response = MagicMock()
+                response.__enter__.return_value = response
+                response.read.side_effect = failure
+                with patch.object(MODULE.urllib.request, "urlopen", return_value=response) as opened, \
+                        patch.object(MODULE.time, "sleep") as sleep, \
+                        patch("sys.stderr", new_callable=io.StringIO):
+                    with self.assertRaisesRegex(MODULE.JellyfinError, "after 4 attempts"):
+                        MODULE.WikidataArtistImages()._request("https://example.com/image")
+                self.assertEqual(opened.call_count, 4)
+                self.assertEqual(sleep.call_count, 3)
+
+    def test_sweep_continues_after_exhausted_disconnect_in_probe_and_apply(self):
+        candidates = [("artist", {"Id": "1", "Name": "Disconnected"}),
+                      ("artist", {"Id": "2", "Name": "Next artist"})]
+        for mode in ("--probe", "--apply"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                report = Path(directory) / "report.json"
+                fallback = MODULE.WikidataArtistImages()
+
+                def find(item):
+                    if item["Id"] == "1":
+                        return fallback._request("https://musicbrainz.org/ws/2/artist/test")
+                    return None
+
+                with patch.object(sys, "argv", [str(SCRIPT), "artists", mode, "--delay", "0",
+                                               "--report", str(report)]), \
+                        patch.object(MODULE, "read_token", return_value="token"), \
+                        patch.object(MODULE, "collect", return_value=candidates), \
+                        patch.object(MODULE.Jellyfin, "remote_primary", return_value=None), \
+                        patch.object(MODULE.WikidataArtistImages, "find", side_effect=find) as searched, \
+                        patch.object(MODULE.urllib.request, "urlopen", side_effect=
+                                     http.client.RemoteDisconnected("connection closed")) as opened, \
+                        patch.object(MODULE.time, "sleep"), \
+                        patch("sys.stdout", new_callable=io.StringIO) as output, \
+                        patch("sys.stderr", new_callable=io.StringIO) as errors:
+                    self.assertEqual(MODULE.main(), 1)
+                self.assertEqual(opened.call_count, 4)
+                self.assertEqual(searched.call_count, 2)
+                self.assertIn("Next artist", output.getvalue())
+                self.assertIn("FAILED: Disconnected", errors.getvalue())
+                if mode == "--apply":
+                    rows = json.loads(report.read_text())
+                    self.assertEqual([row["status"] for row in rows],
+                                     ["error", "no-provider-result"])
+
+    def test_jellyfin_disconnect_is_reported_without_retrying_upload(self):
+        client = MODULE.Jellyfin("http://example", "token")
+        for action in (lambda: client.request("/Artists"),
+                       lambda: client.upload_primary("abc", b"image", "image/png")):
+            with patch.object(MODULE.urllib.request, "urlopen", side_effect=
+                              http.client.RemoteDisconnected("connection closed")) as opened:
+                with self.assertRaises(MODULE.JellyfinError):
+                    action()
+                opened.assert_called_once()
+
     def test_missing_primary_ignores_other_image_types(self):
         items = [
             {"Id": "1", "ImageTags": {"Primary": "tag"}},
@@ -50,6 +137,37 @@ class ArtworkTests(unittest.TestCase):
         self.assertEqual(request.call_args.kwargs["params"], {
             "type": "Primary", "imageUrl": "https://provider/image.jpg",
         })
+
+    def test_wikidata_fallback_prefers_existing_musicbrainz_id(self):
+        fallback = MODULE.WikidataArtistImages(musicbrainz_delay=0)
+        item = {"Name": "Artist", "ProviderIds": {"MusicBrainzArtist": "mbid"}}
+        with patch.object(fallback, "_musicbrainz") as request:
+            self.assertEqual(fallback.musicbrainz_id(item), "mbid")
+        request.assert_not_called()
+
+    def test_wikidata_fallback_accepts_one_exact_high_score_match(self):
+        fallback = MODULE.WikidataArtistImages(musicbrainz_delay=0)
+        with patch.object(fallback, "_musicbrainz", return_value={"artists": [
+            {"id": "right", "name": "Skillet", "score": 100},
+            {"id": "wrong", "name": "Skillet Tribute", "score": 100},
+        ]}):
+            self.assertEqual(fallback.musicbrainz_id({"Name": "Skillet"}), "right")
+
+    def test_wikidata_fallback_rejects_ambiguous_exact_names(self):
+        fallback = MODULE.WikidataArtistImages(musicbrainz_delay=0)
+        with patch.object(fallback, "_musicbrainz", return_value={"artists": [
+            {"id": "one", "name": "Dusty", "score": 100},
+            {"id": "two", "name": "DUSTY", "score": 100},
+        ]}):
+            self.assertIsNone(fallback.musicbrainz_id({"Name": "DUSTY"}))
+
+    def test_wikidata_relation_requires_one_entity(self):
+        fallback = MODULE.WikidataArtistImages(musicbrainz_delay=0)
+        with patch.object(fallback, "_musicbrainz", return_value={"relations": [
+            {"type": "wikidata", "url": {"resource": "https://www.wikidata.org/wiki/Q42"}},
+            {"type": "official homepage", "url": {"resource": "https://example.com"}},
+        ]}):
+            self.assertEqual(fallback.wikidata_id("mbid"), "Q42")
 
     def test_artist_visibility_uses_artist_index(self):
         client = MODULE.Jellyfin("http://example", "token")

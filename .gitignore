@@ -35,4 +35,5 @@ stale-library-report.json
 stale-library-cleanup-result.json
 non-flac-tracks.csv
 compound-artist-audit.json
+reports/library-review-*/
 *.precleanup-*.bak

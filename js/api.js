@@ -676,7 +676,25 @@ class JellyfinApi {
       this.albums({ ...common, limit, sortBy: "SortName" }, signal),
       this.artists({ searchTerm: term, limit }, signal),
     ]);
-    return { songs: songs.items, albums: albums.items, artists: artists.items };
+    // Jellyfin's SearchTerm matches item titles, not their artist credits.
+    // Include the catalog of matching artists without filtering those titles
+    // again (e.g. searching Skillet must also find Comatose and Victorious).
+    if (!artists.items.length) {
+      return { songs: songs.items, albums: albums.items, artists: artists.items };
+    }
+    const ids = artists.items.map((artist) => artist.Id).join(",");
+    const [artistSongs, artistAlbums] = await Promise.all([
+      this.songs({ ArtistIds: ids, limit, sortBy: "SortName" }, signal),
+      this.albums({ AlbumArtistIds: ids, limit, sortBy: "SortName" }, signal),
+    ]);
+    const merge = (direct, associated) =>
+      [...new Map([...direct, ...associated].map((item) => [item.Id, item])).values()]
+        .slice(0, limit);
+    return {
+      songs: merge(songs.items, artistSongs.items),
+      albums: merge(albums.items, artistAlbums.items),
+      artists: artists.items,
+    };
   }
 
   async instantMix(itemId, limit = 60) {

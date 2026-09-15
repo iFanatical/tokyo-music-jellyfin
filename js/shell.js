@@ -2,6 +2,8 @@
 
 import { api } from "./api.js";
 import { player } from "./player.js";
+import { rangeControl } from "./range.js";
+import { volumeLabel, volumeGain, parseVolumeDb } from "./volume.js";
 import { icons } from "./icons.js";
 import { navigate, routes, linkify } from "./nav.js";
 import {
@@ -27,81 +29,6 @@ import {
    Range control (seek + volume)
    ============================================================ */
 
-function rangeControl({ onInput, onCommit, label }) {
-  const fill = el("div.range-fill");
-  const buffer = el("div.range-buffer");
-  const thumb = el("div.range-thumb");
-  const track = el("div.range-track", {}, [buffer, fill]);
-  const root = el("div.range", {
-    role: "slider",
-    tabindex: "0",
-    "aria-label": label,
-    "aria-valuemin": "0",
-    "aria-valuemax": "100",
-  }, [track, thumb]);
-
-  let dragging = false;
-
-  const ratioFromEvent = (e) => {
-    const r = root.getBoundingClientRect();
-    return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-  };
-
-  root.addEventListener("pointerdown", (e) => {
-    dragging = true;
-    root.classList.add("dragging");
-    root.setPointerCapture(e.pointerId);
-    const v = ratioFromEvent(e);
-    root.setValue(v);
-    onInput?.(v);
-  });
-
-  root.addEventListener("pointermove", (e) => {
-    if (!dragging) return;
-    const v = ratioFromEvent(e);
-    root.setValue(v);
-    onInput?.(v);
-  });
-
-  const end = (e) => {
-    if (!dragging) return;
-    dragging = false;
-    root.classList.remove("dragging");
-    const v = ratioFromEvent(e);
-    root.setValue(v);
-    onCommit?.(v);
-  };
-  root.addEventListener("pointerup", end);
-  root.addEventListener("pointercancel", end);
-
-  root.addEventListener("keydown", (e) => {
-    const step = e.shiftKey ? 0.1 : 0.02;
-    let v = null;
-    if (e.key === "ArrowRight" || e.key === "ArrowUp") v = root.value + step;
-    else if (e.key === "ArrowLeft" || e.key === "ArrowDown") v = root.value - step;
-    else if (e.key === "Home") v = 0;
-    else if (e.key === "End") v = 1;
-    if (v === null) return;
-    e.preventDefault();
-    v = Math.max(0, Math.min(1, v));
-    root.setValue(v);
-    onCommit?.(v);
-  });
-
-  root.value = 0;
-  root.isDragging = () => dragging;
-  root.setValue = (v) => {
-    root.value = v;
-    const pct = `${v * 100}%`;
-    fill.style.width = pct;
-    thumb.style.left = pct;
-    root.setAttribute("aria-valuenow", String(Math.round(v * 100)));
-  };
-  root.setBuffer = (v) => {
-    buffer.style.width = `${Math.max(0, Math.min(1, v)) * 100}%`;
-  };
-  return root;
-}
 
 /* ============================================================
    Sidebar
@@ -406,10 +333,78 @@ export function buildPlayerBar({ onToggleQueue, onToggleFullscreen }) {
   });
   const vol = rangeControl({
     label: "Volume",
+    step: 0.01,
+    shiftStep: 0.0025,
+    valueText: volumeLabel,
     onInput: (v) => player.setVolume(v),
     onCommit: (v) => player.setVolume(v),
   });
   vol.setValue(player.muted ? 0 : player.volume);
+  vol.title = "Center: 0 dB (original level). Right: up to +6 dB with peak protection. Shift: finer adjustment.";
+  const unity = el("button.volume-unity", {
+    text: "0 dB", title: "Reset to original level (0 dB)",
+    onclick: () => player.setVolume(0.5),
+  });
+  let editingVolume = false;
+  const volReadout = el("button.volume-readout", {
+    type: "button", text: volumeLabel(player.volume),
+    title: "Set an exact volume in dB", "aria-label": "Edit volume in decibels",
+    onclick: () => {
+      editingVolume = true;
+      volReadout.hidden = true;
+      volInput.hidden = false;
+      const db = player.volume > 0 ? 20 * Math.log10(volumeGain(player.volume)) : -96;
+      volInput.value = String(Math.max(-96, Math.round(db * 10) / 10));
+      volInput.focus();
+      volInput.select();
+    },
+  });
+  const volInput = el("input.volume-db-input", {
+    type: "text", inputmode: "decimal", hidden: true, autocomplete: "off",
+    "aria-label": "Volume in dB, minus 96 to plus 6",
+    "aria-describedby": "volume-db-help", spellcheck: "false",
+    title: "Enter to apply; Escape to cancel. Range: -96 to +6 dB.",
+  });
+  const volError = el("span.volume-db-error", { id: "volume-db-help", role: "alert", hidden: true });
+  function finishVolumeEdit(apply) {
+    if (!editingVolume) return true;
+    if (apply) {
+      const result = parseVolumeDb(volInput.value);
+      if (result.error) {
+        volError.textContent = result.error;
+        volError.hidden = false;
+        volInput.setAttribute("aria-invalid", "true");
+        return false;
+      }
+      player.setVolume(result.position);
+    }
+    editingVolume = false;
+    volInput.hidden = true;
+    volReadout.hidden = false;
+    volError.hidden = true;
+    volInput.removeAttribute("aria-invalid");
+    return true;
+  }
+  volInput.addEventListener("keydown", (e) => {
+    // Do not let a gain entry trigger transport or global volume shortcuts.
+    e.stopPropagation();
+    if (e.key === "Enter" || e.key === "Escape") {
+      e.preventDefault();
+      if (finishVolumeEdit(e.key === "Enter")) volReadout.focus();
+    }
+  });
+  volInput.addEventListener("blur", () => {
+    if (!finishVolumeEdit(true)) finishVolumeEdit(false);
+  });
+  volInput.addEventListener("input", () => {
+    volError.hidden = true;
+    volInput.removeAttribute("aria-invalid");
+  });
+  const volValue = el("div.volume-value", {}, [volReadout, volInput, volError]);
+  const volScale = el("div.volume-scale", {}, [
+    el("span", { text: "−∞" }), unity, el("span", { text: "+6" }),
+  ]);
+  const volFader = el("div.volume-fader", {}, [vol, volScale]);
 
   const queueBtn = el("button.icon-btn.ghost", {
     html: icons.queue,
@@ -424,16 +419,51 @@ export function buildPlayerBar({ onToggleQueue, onToggleFullscreen }) {
     onclick: onToggleFullscreen,
   });
 
-  const volWrap = el("div.volume-wrap", {}, [volBtn, vol]);
+  const volWrap = el("div.volume-wrap", {
+    id: "player-volume-controls", role: "group", "aria-label": "Volume controls",
+  }, [volBtn, volFader, volValue]);
+  const compactVolume = window.matchMedia("(max-width: 980px)");
+  const volToggle = el("button.icon-btn.ghost.volume-toggle", {
+    type: "button", html: icons.volHigh, title: "Volume controls",
+    "aria-label": "Open volume controls", "aria-expanded": "false",
+    "aria-controls": "player-volume-controls",
+    onclick: () => setVolumeOpen(!volumeHost.classList.contains("open"), true),
+  });
+  const volumeHost = el("div.volume-host", {}, [volToggle, volWrap]);
+  function setVolumeOpen(open, focus = false) {
+    open = open && compactVolume.matches;
+    if (!open && editingVolume && volumeHost.classList.contains("open")) finishVolumeEdit(false);
+    volumeHost.classList.toggle("open", open);
+    volToggle.setAttribute("aria-expanded", String(open));
+    volToggle.setAttribute("aria-label", open ? "Close volume controls" : "Open volume controls");
+    if (focus) (open ? vol : volToggle).focus();
+  }
+  document.addEventListener("pointerdown", (e) => {
+    if (!volumeHost.contains(e.target) && !vol.isDragging()) setVolumeOpen(false);
+  });
+  volumeHost.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && volumeHost.classList.contains("open")) {
+      e.preventDefault();
+      e.stopPropagation();
+      setVolumeOpen(false, true);
+    }
+  });
+  volumeHost.addEventListener("focusout", (e) => {
+    if (e.relatedTarget && !volumeHost.contains(e.relatedTarget)) setVolumeOpen(false);
+  });
+  compactVolume.addEventListener("change", () => {
+    setVolumeOpen(compactVolume.matches && volWrap.contains(document.activeElement));
+  });
 
   /* Wheel over the volume cluster nudges the level. passive:false is required
      so the page behind the player bar does not scroll at the same time. */
   volWrap.addEventListener(
     "wheel",
     (e) => {
-      if (!e.deltaY) return;
+      if (!e.deltaY || editingVolume) return;
       e.preventDefault();
-      const step = e.shiftKey ? 0.02 : 0.05;
+      if (vol.isDragging()) return;
+      const step = e.shiftKey ? 0.0025 : 0.01;
       const from = player.muted ? 0 : player.volume;
       player.setVolume(from + (e.deltaY < 0 ? step : -step));
     },
@@ -444,7 +474,7 @@ export function buildPlayerBar({ onToggleQueue, onToggleFullscreen }) {
     qualityTag,
     fullscreenBtn,
     queueBtn,
-    volWrap,
+    volumeHost,
   ]);
 
   const root = el("footer.player", {}, [nowPlaying, center, right]);
@@ -539,6 +569,10 @@ export function buildPlayerBar({ onToggleQueue, onToggleFullscreen }) {
     const v = player.muted ? 0 : player.volume;
     volBtn.innerHTML = v === 0 ? icons.volMute : v < 0.5 ? icons.volLow : icons.volHigh;
     volBtn.title = player.muted ? "Unmute" : "Mute";
+    volBtn.setAttribute("aria-label", volBtn.title);
+    volToggle.innerHTML = volBtn.innerHTML;
+    volReadout.textContent = player.muted ? "Muted" : volumeLabel(player.volume);
+    volWrap.classList.toggle("boosting", !player.muted && player.volume > 0.5);
   }
 
   player.on("track", () => {
