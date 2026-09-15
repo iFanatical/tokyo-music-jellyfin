@@ -19,6 +19,7 @@ import {
   contextMenu,
   confirmDialog,
   promptDialog,
+  editPlaylistDialog,
   toast,
 } from "./../ui.js";
 import {
@@ -341,12 +342,15 @@ export async function playlistView(container, params, signal) {
   container.append(page);
   page.append(spinner());
 
-  const reload = () => playlistView(container, params, signal);
+  const reload = () => {
+    if (!signal?.aborted && page.isConnected) playlistView(container, params, signal);
+  };
 
   try {
-    const [pl, tracks] = await Promise.all([
+    const [pl, tracks, access] = await Promise.all([
       api.getItem(params.id),
       api.playlistItems(params.id, signal),
+      api.playlistAccess(params.id, signal).catch(() => null),
     ]);
     if (signal?.aborted) return;
     clear(page);
@@ -362,7 +366,8 @@ export async function playlistView(container, params, signal) {
           el("div.hero-kind", { text: "Playlist" }),
           el("h1.hero-title", { text: displayName(pl, "Untitled playlist") }),
           el("div.hero-line", {}, [
-            el("span.strong", { text: api.userName }),
+            el("span.strong", { text: access ? (access.isPublic ? "Public" : "Private") : "Visibility unavailable",
+              title: "Private retains explicit invitations. Public is visible to all server users." }),
             dot(),
             el("span", { text: fmtCount(tracks.length, "track") }),
             tracks.length ? dot() : null,
@@ -387,25 +392,9 @@ export async function playlistView(container, params, signal) {
             },
           },
           {
-            label: "Rename playlist",
+            label: "Edit playlist…",
             icon: "list",
-            onClick: async () => {
-              const name = await promptDialog({
-                title: "Rename playlist",
-                label: "Playlist name",
-                value: pl.Name,
-                confirmLabel: "Rename",
-              });
-              if (!name || name === pl.Name) return;
-              try {
-                await api.renamePlaylist(pl.Id, name);
-                toast("Playlist renamed");
-                window.dispatchEvent(new CustomEvent("tm:playlists-changed"));
-                reload();
-              } catch (err) {
-                toast(err.message || "Rename failed", "err");
-              }
-            },
+            onClick: () => editPlaylistDialog(pl, reload),
           },
           "sep",
           {
@@ -442,6 +431,11 @@ export async function playlistView(container, params, signal) {
           onclick: () => player.playShuffled(tracks, ctx()),
         }),
         moreBtn,
+        el("button.btn", {
+          text: "Edit playlist",
+          title: "Rename playlist or change private/public visibility",
+          onclick: () => editPlaylistDialog(pl, reload),
+        }),
       ])
     );
 

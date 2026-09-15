@@ -659,8 +659,39 @@ class JellyfinApi {
   }
 
   async renamePlaylist(playlistId, name) {
-    const item = await this.getItem(playlistId);
-    return this.post(`/Items/${playlistId}`, undefined, { ...item, Name: name });
+    return this.updatePlaylistSettings(playlistId, { name });
+  }
+
+  async playlistAccess(playlistId, signal) {
+    const [playlist, permission] = await Promise.all([
+      this.get(`/Playlists/${playlistId}`, undefined, signal),
+      this.get(`/Playlists/${playlistId}/Users/${this.userId}`, undefined, signal)
+        .catch((err) => {
+          // A public viewer need not have an explicit share entry.
+          if (err.status === 403 || err.status === 404) return null;
+          throw err;
+        }),
+    ]);
+    if (typeof playlist?.OpenAccess !== "boolean") {
+      throw new Error("This server did not provide playlist visibility settings.");
+    }
+    return { isPublic: playlist.OpenAccess, canEdit: permission?.CanEdit === true };
+  }
+
+  async updatePlaylistSettings(playlistId, { name, isPublic }) {
+    const body = {};
+    if (name !== undefined) {
+      if (typeof name !== "string" || !name.trim()) throw new Error("Enter a playlist name.");
+      body.Name = name.trim();
+    }
+    if (isPublic !== undefined) {
+      if (typeof isPublic !== "boolean") throw new Error("Choose private or public visibility.");
+      body.IsPublic = isPublic;
+    }
+    if (!Object.keys(body).length) return;
+    // Jellyfin's playlist-specific endpoint permits owners/shared editors.
+    // Omit Ids and Users: resending them can replace tracks or invitations.
+    return this.post(`/Playlists/${playlistId}`, undefined, body);
   }
 
   async deleteItem(itemId) {

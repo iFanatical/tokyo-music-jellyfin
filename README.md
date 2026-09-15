@@ -251,6 +251,24 @@ played" stay in sync with your other clients.
 **Playlists** — Create, rename, delete, add, remove, and drag to reorder.
 Ctrl-click and shift-click select multiple tracks for bulk actions.
 
+Open a playlist and click **Edit playlist** to rename it or change its visibility.
+The same editor is available from a playlist card's right-click menu and the
+playlist's More menu. **Public** means visible to all signed-in server users;
+**Private** retains access for the owner and people explicitly invited through
+Jellyfin. This switch does not remove invitations or bypass library permissions.
+Only owners and invited editors can save; other viewers get read-only settings.
+Nothing changes until Save is clicked, and existing playlists are not changed
+automatically by deploying the frontend.
+
+The editor uses Jellyfin 10.11.11's [playlist-specific update endpoint](https://github.com/jellyfin/jellyfin/blob/v10.11.11/Jellyfin.Api/Controllers/PlaylistsController.cs)
+with only changed `Name`/`IsPublic` fields. It omits `Ids` and `Users` so edits
+preserve song order, duplicates, entry IDs, and explicit invitations. The
+[update DTO](https://github.com/jellyfin/jellyfin/blob/v10.11.11/Jellyfin.Api/Models/PlaylistDtos/UpdatePlaylistDto.cs)
+keeps omitted fields unchanged. Tests: `node tests/test_playlist_settings.mjs`;
+with the local server on port 8099,
+`CHROME_BIN=/path/to/chromium node tests/test_playlist_browser.cjs` tests the real
+editor against a mock server without touching users' playlists.
+
 **Quality** — Streams original quality by default (FLAC direct-plays in Chrome
 and Firefox). The `ORIG` chip in the player bar caps the bitrate and lets the
 server transcode instead.

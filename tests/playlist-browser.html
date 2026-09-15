@@ -1,0 +1,47 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Playlist editor regression fixture</title>
+<link rel="stylesheet" href="../css/tokyonight.css">
+<link rel="stylesheet" href="../css/app.css">
+<body><main id="test-page"></main>
+<script type="module">
+import { api } from '../js/api.js';
+import { editPlaylistDialog } from '../js/ui.js';
+import { playlistView } from '../js/views/detail.js';
+api.userId = 'owner';
+window.state = { Name: 'Evening music', OpenAccess: false, canEdit: true,
+  ItemIds: ['song-1', 'song-2', 'song-1'], Shares: [{ UserId: 'friend', CanEdit: true }] };
+window.writes = [];
+window.changed = 0;
+window.callbacks = 0;
+window.failSave = false;
+window.failLoad = false;
+window.delaySave = false;
+window.permissionMissing = false;
+window.releaseSave = null;
+window.item = { Id: 'playlist-test', Type: 'Playlist', Name: state.Name };
+window.addEventListener('tm:playlists-changed', () => changed++);
+api.request = async (path, options = {}) => {
+  if (options.method === 'POST') {
+    writes.push({ path, body: structuredClone(options.body) });
+    if (delaySave) await new Promise(resolve => { window.releaseSave = resolve; });
+    if (failSave) throw Object.assign(new Error('Permission denied'), { status: 403 });
+    if ('Name' in options.body) state.Name = options.body.Name;
+    if ('IsPublic' in options.body) state.OpenAccess = options.body.IsPublic;
+    if ('Ids' in options.body || 'Users' in options.body) throw new Error('Unexpected destructive replacement');
+    return null;
+  }
+  if (failLoad) throw new Error('Connection failed');
+  if (path === '/Items/playlist-test') return { ...item, Name: state.Name };
+  if (path === '/Playlists/playlist-test') return structuredClone(state);
+  if (path === '/Playlists/playlist-test/Users/owner') {
+    if (permissionMissing) throw Object.assign(new Error('No share'), { status: 404 });
+    return { CanEdit: state.canEdit };
+  }
+  if (path === '/Playlists/playlist-test/Items') return { Items: [] };
+  throw new Error('Unexpected request: ' + path);
+};
+window.openEditor = () => editPlaylistDialog(item, () => callbacks++);
+window.showPlaylist = () => playlistView(document.getElementById('test-page'), { id: item.Id });
+window.ready = true;
+</script>

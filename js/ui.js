@@ -135,7 +135,10 @@ export function playlistCard(pl) {
       text: pl.ChildCount != null ? fmtCount(pl.ChildCount, "track") : "Playlist",
     }),
   ]);
-  card.addEventListener("contextmenu", (e) => playlistMenu(e, pl));
+  card.addEventListener("contextmenu", (e) => playlistMenu(e, pl, () => {
+    card.title = displayName(pl, "Untitled playlist");
+    card.querySelector(".card-title").textContent = card.title;
+  }));
   return linkify(card, routes.playlist(pl.Id));
 }
 
@@ -675,6 +678,11 @@ export function playlistMenu(ev, pl, onChange) {
     },
     "sep",
     {
+      label: "Edit playlist…",
+      icon: "list",
+      onClick: () => editPlaylistDialog(pl, onChange),
+    },
+    {
       label: "Delete playlist",
       icon: "trash",
       danger: true,
@@ -735,6 +743,95 @@ export function modal({ title, subtitle, body, footer, onClose }) {
   backdrop.close = close;
   setTimeout(() => box.querySelector("input, button")?.focus(), 40);
   return backdrop;
+}
+
+/** Name + visibility editor. Never bulk-replace songs or per-user shares. */
+export async function editPlaylistDialog(pl, onChange) {
+  const opener = document.activeElement;
+  const name = el("input", { type: "text", id: "playlist-edit-name", disabled: true });
+  const visibility = el("select.select", { id: "playlist-edit-visibility", disabled: true,
+    style: { width: "100%" } }, [
+    el("option", { value: "private", text: "Private — owner and invited users" }),
+    el("option", { value: "public", text: "Public — all server users" }),
+  ]);
+  const status = el("p", { role: "status", text: "Loading playlist permissions…" });
+  const error = el("p", { role: "alert", style: { color: "var(--bad)" } });
+  const form = el("form.playlist-settings", {}, [
+    el("div.field", {}, [el("label", { for: name.id, text: "Playlist name" }), name]),
+    el("div.field", {}, [el("label", { for: visibility.id, text: "Visibility" }), visibility]),
+    el("p", { text: "Private playlists remain accessible to people explicitly invited in Jellyfin. Public means all signed-in server users, not anonymous visitors. Existing invitations and music-library permissions are unchanged.",
+      style: { color: "var(--text-muted)", fontSize: "13px" } }),
+    status, error,
+  ]);
+  let closed = false, saving = false, original, access;
+  const save = el("button.btn.primary", { text: "Save changes", disabled: true, onclick: () => submit() });
+  const m = modal({ title: "Edit playlist", body: form,
+    footer: [el("button.btn", { text: "Cancel", onclick: () => m.close() }), save],
+    onClose: () => { closed = true; if (opener?.isConnected) opener.focus(); },
+  });
+  m.querySelector('[role="dialog"]').setAttribute("aria-label", "Edit playlist");
+  // Don't trigger global keyboard shortcuts while operating this dialog.
+  m.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") e.stopPropagation();
+    if (e.key === "Tab") {
+      const controls = [...m.querySelectorAll("input:not(:disabled), select:not(:disabled), button:not(:disabled)")];
+      const first = controls[0], last = controls.at(-1);
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+    }
+  });
+  form.addEventListener("submit", (e) => { e.preventDefault(); submit(); });
+  async function submit() {
+    if (closed || saving || !access?.canEdit) return;
+    const nextName = name.value.trim();
+    if (!nextName) { error.textContent = "Enter a playlist name."; name.focus(); return; }
+    const changes = {};
+    if (nextName !== original.Name) changes.name = nextName;
+    if ((visibility.value === "public") !== access.isPublic) changes.isPublic = visibility.value === "public";
+    if (!Object.keys(changes).length) { m.close(); return; }
+    saving = true;
+    save.disabled = name.disabled = visibility.disabled = true;
+    save.textContent = "Saving…";
+    error.textContent = "";
+    try {
+      await api.updatePlaylistSettings(pl.Id, changes);
+      pl.Name = nextName;
+      if (player.context?.type === "playlist" && player.context.id === pl.Id) {
+        player.context.name = nextName;
+      }
+      if (!closed) m.close();
+      toast("Playlist updated");
+      window.dispatchEvent(new CustomEvent("tm:playlists-changed"));
+      onChange?.();
+    } catch (err) {
+      if (!closed) {
+        error.textContent = err.status === 403
+          ? "You no longer have permission to edit this playlist."
+          : err.message || "Could not update playlist.";
+      }
+    } finally {
+      saving = false;
+      if (!closed) {
+        save.disabled = name.disabled = visibility.disabled = false;
+        save.textContent = "Save changes";
+      }
+    }
+  }
+  try {
+    [original, access] = await Promise.all([api.getItem(pl.Id), api.playlistAccess(pl.Id)]);
+    if (closed) return;
+    name.value = original.Name || "";
+    visibility.value = access.isPublic ? "public" : "private";
+    save.disabled = name.disabled = visibility.disabled = !access.canEdit;
+    status.textContent = access.canEdit ? "" : "Read-only: only the owner and invited editors can change this playlist.";
+    if (access.canEdit) { name.focus(); name.select(); }
+    else m.querySelector(".modal-foot button").focus();
+  } catch (err) {
+    if (!closed) {
+      status.textContent = "Settings unavailable; nothing has been changed.";
+      error.textContent = err.message || "Could not load playlist settings.";
+    }
+  }
 }
 
 export function confirmDialog({ title, body, confirmLabel = "Confirm", danger }) {
