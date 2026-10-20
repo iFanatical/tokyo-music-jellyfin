@@ -82,17 +82,28 @@ If you put this behind a TLS reverse proxy, Jellyfin must also be reachable over
 HTTPS — a secure page cannot call a plain-HTTP API. Point both through the same
 proxy.
 
+### Default server address
+
+The sign-in screen guesses the Jellyfin address from where the page is served.
+To override that for a deployment, copy `config.example.js` to `config.js`
+(gitignored) and set `defaultServer`; `{hostname}` expands to the page's
+hostname. It is a plain script, so it can branch on `location`, as the example
+does for a public copy on `:444`. `deploy.sh` copies it and never deletes a
+`config.js` that only exists on the server.
+
 ---
 
 ## Layout
 
 | Path | Purpose |
 |---|---|
-| `index.html` | Shell; loads `js/app.js` as a module |
+| `index.html` | Shell; loads optional `config.js`, then `js/app.js` as a module |
+| `manifest.webmanifest`, `sw.js` | Install metadata and the app-shell service worker |
 | `css/tokyonight.css` | Palette and design tokens |
 | `css/app.css` | Layout and components |
 | `js/api.js` | Jellyfin client, scoped to audio |
-| `js/player.js` | Audio engine: queue, shuffle, repeat, reporting |
+| `js/player.js` | Audio engine: queue, shuffle, repeat, preloading, saved queue, reporting |
+| `js/lyrics.js` | Lyric parsing and the fullscreen lyrics panel |
 | `js/shell.js` | Sidebar, topbar, player bar, queue panel |
 | `js/ui.js` | Cards, track lists, menus, modals, toasts |
 | `js/views/` | One module per screen |
@@ -100,6 +111,7 @@ proxy.
 | `serve.py` | Static server |
 | `deploy/` | systemd unit template and install scripts |
 | `tools/` | tag maintenance script |
+| `tests/` | `make test` runs everything; browser tests skip without Chromium |
 
 Everything is audio-scoped at the API layer: queries are restricted to
 `MusicAlbum` / `MusicArtist` / `Audio` and to your music libraries, and
@@ -248,6 +260,32 @@ three repeat modes, seek, volume, and OS media-key support via the Media Session
 API. Playback is reported to Jellyfin, so play counts, resume and "recently
 played" stay in sync with your other clients.
 
+Consecutive tracks play back to back: the next track starts buffering in a
+second audio element 30 seconds before the current one ends and takes over the
+moment it finishes. This removes the network wait between tracks; it is not
+sample-accurate gapless, so a few milliseconds of silence can remain. Tracks
+that need a transcode are not preloaded, because a second transcode for the
+same device can make Jellyfin end the one that is playing.
+
+The queue, current track, position, shuffle order and "From …" context are
+saved in `localStorage` and restored, paused, on the next load. They belong to
+the signed-in user and server, are kept when a session expires, and are cleared
+by signing out.
+
+**Lyrics** — Press `Y`, or the microphone button in the fullscreen player, to
+show lyrics beside the artwork. Synced (LRC) lyrics highlight and follow the
+current line, and clicking a line seeks to it; scrolling by hand pauses the
+follow for a few seconds. Plain lyrics are shown as text. Lyrics come from
+Jellyfin, so they must exist as embedded tags, `.lrc`/`.txt` sidecar files, or
+from a lyrics plugin.
+
+**Install** — The app ships a web manifest and a service worker, so Chromium
+browsers offer to install it as a standalone window (account menu → **Install
+app**, or the address-bar icon). This needs HTTPS or `localhost`: on a plain
+`http://host:8097` address the browser will not offer it. The worker is
+network-first and only handles the app's own files, never Jellyfin requests, so
+redeploys still appear on the next load, and the app can open while offline.
+
 **Playlists** — Create, rename, delete, add, remove, and drag to reorder.
 Ctrl-click and shift-click select multiple tracks for bulk actions.
 
@@ -285,6 +323,8 @@ server transcode instead.
 | `M` | Mute |
 | `S` / `R` | Shuffle / repeat |
 | `Q` | Queue panel |
+| `F` | Fullscreen player |
+| `Y` | Lyrics (fullscreen player) |
 | `/` | Search |
 | `?` | Shortcut list |
 
@@ -483,7 +523,8 @@ and that you are on the same network.
 
 **Track won't play, format unsupported** — Chromium builds without proprietary
 codecs may refuse some files. Set the quality chip to 320 kbps to force the
-server to transcode to AAC.
+server to transcode (HLS/AAC where the browser plays HLS natively, MP3
+otherwise). Seeking within a progressive MP3 transcode may be limited.
 
 **Signed out unexpectedly** — The token was revoked server-side (Dashboard →
 Devices). Sign in again. Note that changing your Jellyfin password revokes the

@@ -66,7 +66,11 @@ function dot() {
 }
 
 function playPauseButton(getTracks, contextFor) {
-  const btn = el("button.btn-play-lg", { html: icons.play, title: "Play" });
+  const btn = el("button.btn-play-lg", {
+    html: icons.play,
+    title: "Play",
+    dataset: { tmDestroy: "" },
+  });
 
   const isThisContext = () => {
     const ctx = player.context;
@@ -88,8 +92,8 @@ function playPauseButton(getTracks, contextFor) {
     player.play(tracks, 0, contextFor());
   });
 
-  player.on("state", sync);
-  player.on("track", sync);
+  const offs = [player.on("state", sync), player.on("track", sync)];
+  btn.addEventListener("tm:destroy", () => offs.forEach((off) => off()));
   sync();
   return btn;
 }

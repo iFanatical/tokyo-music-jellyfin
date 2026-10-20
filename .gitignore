@@ -37,3 +37,11 @@ non-flac-tracks.csv
 compound-artist-audit.json
 reports/library-review-*/
 *.precleanup-*.bak
+
+# Library reports from the maintenance tools (contain personal library data)
+artwork-report*.json
+artwork-sweep*.json
+non-flac-tracks.ods
+
+# Deployment-specific client settings; see config.example.js
+config.js

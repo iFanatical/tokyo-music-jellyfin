@@ -196,7 +196,10 @@ export function trackList(tracks, opts = {}) {
     .filter(Boolean)
     .join(" ");
 
-  const wrap = el("div.tracklist", { style: { "--tl-cols": cols } });
+  const wrap = el("div.tracklist", {
+    style: { "--tl-cols": cols },
+    dataset: { tmDestroy: "" },
+  });
 
   const head = el("div.track-head", { style: { "--tl-cols": cols } }, [
     el("div", { text: "#", style: { textAlign: "right" } }),

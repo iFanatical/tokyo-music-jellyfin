@@ -359,7 +359,7 @@ export async function favoritesView(container, params, signal) {
 
   try {
     const [songs, albums, artists] = await Promise.all([
-      api.favoriteSongs({ limit: 500 }, signal),
+      api.favoriteSongs(signal),
       api.favoriteAlbums(signal),
       api.favoriteArtists(signal).catch(() => ({ items: [] })),
     ]);

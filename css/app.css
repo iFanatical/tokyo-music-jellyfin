@@ -1757,6 +1757,103 @@ svg {
   max-width: none;
 }
 
+.fullscreen-transport .icon-btn.on {
+  color: var(--accent);
+}
+
+/* Lyrics: the art moves left and the sheet takes the right-hand side. */
+.fullscreen-player.with-lyrics .fullscreen-art {
+  right: 46%;
+}
+
+.fullscreen-player.with-lyrics .fullscreen-art-stage,
+.fullscreen-player.with-lyrics .fullscreen-art-fallback {
+  width: min(40vw, 56vmin, 600px);
+}
+
+.lyrics-panel {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 46%;
+  display: none;
+  flex-direction: column;
+  padding: clamp(24px, 5vmin, 72px) clamp(24px, 5vw, 80px)
+    clamp(130px, 18vh, 190px) 0;
+}
+
+.fullscreen-player.with-lyrics .lyrics-panel {
+  display: flex;
+}
+
+.lyrics-status {
+  margin: auto 0;
+  color: var(--text-muted);
+  font-size: clamp(15px, 1.6vw, 20px);
+}
+
+.lyrics-lines {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 35vh 0;
+  mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+  -webkit-mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+}
+
+.lyrics-lines::-webkit-scrollbar {
+  display: none;
+}
+
+.lyric-line {
+  padding: 6px 0;
+  color: var(--text);
+  font-size: clamp(15px, 1.6vw, 22px);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.lyrics-panel.synced .lyric-line {
+  color: var(--text-faint);
+  font-size: clamp(18px, 2.2vw, 30px);
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.3s var(--ease), opacity 0.3s var(--ease);
+}
+
+.lyrics-panel.synced .lyric-line:hover {
+  color: var(--text-dim);
+}
+
+.lyrics-panel.synced .lyric-line.past {
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+.lyrics-panel.synced .lyric-line.active {
+  color: #fff;
+  opacity: 1;
+}
+
+.lyric-line.gap {
+  color: var(--text-faint);
+}
+
+@media (max-width: 720px) {
+  .fullscreen-player.with-lyrics .fullscreen-art {
+    display: none;
+  }
+  .lyrics-panel {
+    left: 0;
+    width: auto;
+    padding-inline: 22px;
+  }
+}
+
 @media (max-width: 720px) {
   .fullscreen-controls {
     grid-template-columns: 1fr auto;

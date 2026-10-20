@@ -6,6 +6,7 @@ import { player } from "./player.js";
 import { icons } from "./icons.js";
 import { Router } from "./router.js";
 import { loginScreen } from "./login.js";
+import { initPwa } from "./pwa.js";
 import {
   buildSidebar,
   buildTopbar,
@@ -18,13 +19,40 @@ import { el, $, clear } from "./util.js";
 
 const root = document.getElementById("root");
 
+/** Message carried across the reload in showLogin(), shown on the sign-in card. */
+const SS_LOGIN_NOTICE = "tokyomusic.loginNotice";
+
+let appStarted = false;
+
 /* ============================================================
    Login
    ============================================================ */
 
-function showLogin() {
+function showLogin(notice = "") {
+  // startApp() wires global listeners (keyboard, router, player events) that
+  // have no teardown, so once it has run a fresh page load is the only clean
+  // slate; starting the shell twice in one page doubles every shortcut.
+  if (appStarted) {
+    try {
+      if (notice) sessionStorage.setItem(SS_LOGIN_NOTICE, notice);
+    } catch {
+      /* storage blocked; the notice is a nicety */
+    }
+    location.reload();
+    return;
+  }
   clear(root);
-  root.append(loginScreen(() => startApp()));
+  root.append(loginScreen(() => startApp(), notice));
+}
+
+function takeLoginNotice() {
+  try {
+    const notice = sessionStorage.getItem(SS_LOGIN_NOTICE) || "";
+    sessionStorage.removeItem(SS_LOGIN_NOTICE);
+    return notice;
+  } catch {
+    return "";
+  }
 }
 
 /* ============================================================
@@ -32,6 +60,7 @@ function showLogin() {
    ============================================================ */
 
 function startApp() {
+  appStarted = true;
   clear(root);
 
   const app = el("div.app", { dataset: { queue: "closed", playing: "false" } });
@@ -40,6 +69,7 @@ function startApp() {
   const sidebar = buildSidebar({
     onLogout: async () => {
       player.stop();
+      player.clearSavedQueue();
       await api.logout();
       showLogin();
     },
@@ -81,6 +111,7 @@ function startApp() {
 
   sidebar.loadPlaylists();
   router.start();
+  player.restoreQueue();
 
   /* ---------------- global events ---------------- */
 
@@ -97,9 +128,9 @@ function startApp() {
   window.addEventListener("tm:shortcuts", showShortcuts);
 
   window.addEventListener("tm:unauthorized", () => {
-    player.stop();
-    toast("Session expired — please sign in again", "err");
-    showLogin();
+    // Pause rather than stop: the saved queue survives for the next sign-in.
+    player.pause();
+    showLogin("Your session expired. Please sign in again.");
   });
 
   /* ---------------- keyboard ---------------- */
@@ -194,6 +225,11 @@ function startApp() {
         if (e.repeat) break;
         fullscreenPlayer.toggle();
         break;
+      case "y":
+      case "Y":
+        if (e.repeat) break;
+        fullscreenPlayer.toggleLyrics();
+        break;
       case "?":
         showShortcuts();
         break;
@@ -219,6 +255,7 @@ const SHORTCUTS = [
   ["R", "Repeat mode"],
   ["Q", "Toggle queue"],
   ["F", "Toggle fullscreen player"],
+  ["Y", "Lyrics in the fullscreen player"],
   ["/", "Search"],
   ["Ctrl-click", "Select multiple tracks"],
   ["Shift-click", "Select a range of tracks"],
@@ -264,10 +301,12 @@ function showShortcuts() {
    Go
    ============================================================ */
 
+initPwa();
+
 if (api.isAuthed) {
   // Re-resolve music libraries in the background; the cached ids may be stale.
   api.loadViews().catch(() => {});
   startApp();
 } else {
-  showLogin();
+  showLogin(takeLoginNotice());
 }

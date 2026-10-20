@@ -4,13 +4,44 @@
 import { uuid, secToTicks } from "./util.js";
 
 const CLIENT_NAME = "Tokyo Music";
-const CLIENT_VERSION = "1.0.0";
+const CLIENT_VERSION = "1.1.0";
 const LS_SESSION = "tokyomusic.session";
 const LS_DEVICE = "tokyomusic.deviceId";
 
 /** Containers a browser can decode directly. Anything else the server transcodes. */
 const DIRECT_CONTAINERS =
   "flac,mp3,aac,m4a|aac,alac,m4a|alac,ogg,oga,opus,webma,webm|webma,wav";
+
+/** Bare container names from DIRECT_CONTAINERS, for guessing the play method. */
+const DIRECT_CONTAINER_SET = new Set(
+  DIRECT_CONTAINERS.split(",").map((c) => c.split("|")[0])
+);
+
+/** Page size and safety ceiling for queries that fetch a whole collection. */
+const PAGE_SIZE = 500;
+const MAX_ITEMS = 20000;
+
+/** How long to wait for /System/Info/Public before calling a server unreachable. */
+const PUBLIC_INFO_TIMEOUT_MS = 8000;
+
+/**
+ * Jellyfin answers a transcode request on /universal with an HLS playlist when
+ * TranscodingProtocol is "hls". Only browsers with native HLS (Safari, recent
+ * Chrome) can play that in a plain <audio>; everyone else gets a progressive
+ * MP3 stream instead. HLS is kept where it works because it stays seekable.
+ */
+const NATIVE_HLS = (() => {
+  try {
+    return Boolean(
+      typeof document !== "undefined" &&
+        document.createElement("audio").canPlayType("application/vnd.apple.mpegurl")
+    );
+  } catch {
+    return false;
+  }
+})();
+
+const REPEAT_MODE_NAMES = { none: "RepeatNone", all: "RepeatAll", one: "RepeatOne" };
 
 function deviceId() {
   let id = localStorage.getItem(LS_DEVICE);
@@ -225,8 +256,12 @@ class JellyfinApi {
     }
 
     if (res.status === 401) {
+      // Several requests can be in flight when a session expires; only the
+      // first should sign the user out. A 401 while signed out is just a bad
+      // password and needs no global event.
+      const wasAuthed = Boolean(this.token);
       this.clearSession();
-      window.dispatchEvent(new CustomEvent("tm:unauthorized"));
+      if (wasAuthed) window.dispatchEvent(new CustomEvent("tm:unauthorized"));
       throw new ApiError("Session expired. Please sign in again.", 401, url);
     }
     if (!res.ok) {
@@ -256,7 +291,9 @@ class JellyfinApi {
   static async publicInfo(serverUrl) {
     const base = String(serverUrl).trim().replace(/\/+$/, "");
     const url = /^https?:\/\//i.test(base) ? base : `http://${base}`;
-    const res = await fetch(`${url}/System/Info/Public`);
+    const res = await fetch(`${url}/System/Info/Public`, {
+      signal: AbortSignal.timeout(PUBLIC_INFO_TIMEOUT_MS),
+    });
     if (!res.ok) throw new ApiError("Not a Jellyfin server", res.status, url);
     return res.json();
   }
@@ -290,7 +327,6 @@ class JellyfinApi {
     this.userId = data.User.Id;
     this.userName = data.User.Name;
     this.userImageTag = data.User.PrimaryImageTag || "";
-    this.serverName = data.SessionInfo?.ServerId || this.serverName;
     await this.loadViews();
     this._persist();
     return data;
@@ -340,6 +376,31 @@ class JellyfinApi {
 
   async getItem(id) {
     return this.get(`/Items/${id}`, { userId: this.userId });
+  }
+
+  /**
+   * Fetches every page of a list endpoint. Stops on a short page rather than
+   * trusting TotalRecordCount, which Jellyfin over-reports for some queries.
+   */
+  async _getAll(path, params, signal) {
+    const items = [];
+    for (let start = 0; start < MAX_ITEMS; start += PAGE_SIZE) {
+      const data = await this.get(
+        path,
+        { ...params, StartIndex: start, Limit: PAGE_SIZE },
+        signal
+      );
+      const page = data?.Items || [];
+      items.push(...page);
+      if (page.length < PAGE_SIZE) break;
+    }
+    return items;
+  }
+
+  /** Every matching item from /Items, scoped like getItems(). */
+  async getAllItems(params = {}, signal) {
+    const items = await this._getAll("/Items", this._scope(params), signal);
+    return { items, total: items.length };
   }
 
   albums({ startIndex = 0, limit = 100, sortBy = "SortName", sortOrder = "Ascending", ...rest } = {}, signal) {
@@ -414,11 +475,10 @@ class JellyfinApi {
       IncludeItemTypes: "Audio",
       Recursive: true,
       SortBy: "SortName",
-      Limit: 300,
     };
     if (this.musicParentId) params.ParentId = this.musicParentId;
-    const data = await this.get("/Genres", params, signal);
-    return { items: data?.Items || [], total: data?.TotalRecordCount ?? 0 };
+    const items = await this._getAll("/Genres", params, signal);
+    return { items, total: items.length };
   }
 
   /** Album track list, ordered by disc then track number. */
@@ -438,7 +498,7 @@ class JellyfinApi {
   }
 
   async artistAlbums(artistId, signal) {
-    return this.getItems(
+    return this.getAllItems(
       {
         IncludeItemTypes: "MusicAlbum",
         Recursive: true,
@@ -446,7 +506,6 @@ class JellyfinApi {
         SortBy: "ProductionYear,SortName",
         SortOrder: "Descending",
         Fields: "ProductionYear,ChildCount",
-        Limit: 200,
       },
       signal
     );
@@ -454,7 +513,7 @@ class JellyfinApi {
 
   /** Albums the artist appears on but did not headline. */
   async artistAppearsOn(artistId, signal) {
-    return this.getItems(
+    return this.getAllItems(
       {
         IncludeItemTypes: "MusicAlbum",
         Recursive: true,
@@ -462,7 +521,6 @@ class JellyfinApi {
         SortBy: "ProductionYear,SortName",
         SortOrder: "Descending",
         Fields: "ProductionYear,ChildCount",
-        Limit: 100,
       },
       signal
     );
@@ -484,14 +542,13 @@ class JellyfinApi {
   }
 
   async artistAllTracks(artistId, signal) {
-    const { items } = await this.getItems(
+    const { items } = await this.getAllItems(
       {
         IncludeItemTypes: "Audio",
         Recursive: true,
         ArtistIds: artistId,
         SortBy: "Album,ParentIndexNumber,IndexNumber",
         SortOrder: "Ascending",
-        Limit: 500,
         Fields: "ParentId",
       },
       signal
@@ -528,15 +585,36 @@ class JellyfinApi {
 
   /* ---------------- favorites ---------------- */
 
-  favoriteSongs({ startIndex = 0, limit = 300 } = {}, signal) {
-    return this.songs(
-      { startIndex, limit, Filters: "IsFavorite", sortBy: "SortName" },
+  favoriteSongs(signal) {
+    return this.getAllItems(
+      {
+        IncludeItemTypes: "Audio",
+        Recursive: true,
+        Filters: "IsFavorite",
+        SortBy: "SortName",
+        SortOrder: "Ascending",
+        Fields: "PrimaryImageAspectRatio,Genres,ParentId",
+        ImageTypeLimit: 1,
+        EnableImageTypes: "Primary",
+      },
       signal
     );
   }
 
   favoriteAlbums(signal) {
-    return this.albums({ limit: 200, Filters: "IsFavorite" }, signal);
+    return this.getAllItems(
+      {
+        IncludeItemTypes: "MusicAlbum",
+        Recursive: true,
+        Filters: "IsFavorite",
+        SortBy: "SortName",
+        SortOrder: "Ascending",
+        Fields: "PrimaryImageAspectRatio,ProductionYear,ChildCount,Genres,DateCreated",
+        ImageTypeLimit: 1,
+        EnableImageTypes: "Primary",
+      },
+      signal
+    );
   }
 
   /**
@@ -552,7 +630,6 @@ class JellyfinApi {
       Filters: "IsFavorite",
       SortBy: "SortName",
       SortOrder: "Ascending",
-      Limit: 200,
       Fields: "PrimaryImageAspectRatio,Path",
       ImageTypeLimit: 1,
       EnableImageTypes: "Primary",
@@ -560,14 +637,13 @@ class JellyfinApi {
     if (this.musicParentId) artistParams.ParentId = this.musicParentId;
 
     const [viaArtists, viaItems] = await Promise.all([
-      this.get("/Artists/AlbumArtists", artistParams, signal).catch(() => null),
-      this.getItems(
+      this._getAll("/Artists/AlbumArtists", artistParams, signal).catch(() => []),
+      this.getAllItems(
         {
           IncludeItemTypes: "MusicArtist",
           Recursive: true,
           Filters: "IsFavorite",
           SortBy: "SortName",
-          Limit: 200,
           Fields: "PrimaryImageAspectRatio",
           ImageTypeLimit: 1,
           EnableImageTypes: "Primary",
@@ -577,7 +653,7 @@ class JellyfinApi {
     ]);
 
     const byId = new Map();
-    for (const a of viaArtists?.Items || []) byId.set(a.Id, a);
+    for (const a of viaArtists) byId.set(a.Id, a);
     for (const a of viaItems.items || []) if (!byId.has(a.Id)) byId.set(a.Id, a);
 
     const merged = [...byId.values()].sort((x, y) =>
@@ -852,9 +928,9 @@ class JellyfinApi {
       DeviceId: deviceId(),
       api_key: this.token,
       Container: DIRECT_CONTAINERS,
-      TranscodingContainer: "ts",
-      TranscodingProtocol: "hls",
-      AudioCodec: "aac",
+      ...(NATIVE_HLS
+        ? { TranscodingContainer: "ts", TranscodingProtocol: "hls", AudioCodec: "aac" }
+        : { TranscodingContainer: "mp3", TranscodingProtocol: "http", AudioCodec: "mp3" }),
       EnableRedirection: true,
       EnableRemoteMedia: false,
     };
@@ -863,34 +939,52 @@ class JellyfinApi {
     return this.url(`/Audio/${item.Id}/universal`, params);
   }
 
-  /* ---------------- playback reporting ---------------- */
-
-  reportStart(item, { positionSec = 0, isPaused = false } = {}) {
-    return this.post("/Sessions/Playing", undefined, {
-      ItemId: item.Id,
-      MediaSourceId: item.Id,
-      PositionTicks: secToTicks(positionSec),
-      IsPaused: isPaused,
-      IsMuted: false,
-      CanSeek: true,
-      PlayMethod: "DirectStream",
-      RepeatMode: "RepeatNone",
-      PlaybackOrder: "Default",
-    }).catch(() => {});
+  /**
+   * Best guess at how the server will deliver a track, for playback reports.
+   * The redirect from /universal is invisible to the page, so this mirrors the
+   * server's decision: a browser-decodable container under the bitrate cap
+   * plays as-is, anything else is transcoded.
+   */
+  playMethod(item, maxBitrate = 0) {
+    const source = item?.MediaSources?.[0];
+    const container = String(source?.Container || item?.Container || "")
+      .split(",")[0]
+      .toLowerCase();
+    if (container && !DIRECT_CONTAINER_SET.has(container)) return "Transcode";
+    const bitrate = source?.Bitrate || item?.Bitrate || 0;
+    if (maxBitrate > 0 && (!bitrate || bitrate > maxBitrate)) return "Transcode";
+    return "DirectPlay";
   }
 
-  reportProgress(item, { positionSec, isPaused, volume = 100, isMuted = false }) {
-    return this.post("/Sessions/Playing/Progress", undefined, {
+  /* ---------------- playback reporting ---------------- */
+
+  /** Fields shared by start and progress reports. `mode` comes from the player. */
+  _playbackState(item, { positionSec = 0, isPaused = false, isMuted = false, mode = {} }) {
+    return {
       ItemId: item.Id,
       MediaSourceId: item.Id,
       PositionTicks: secToTicks(positionSec),
       IsPaused: isPaused,
       IsMuted: isMuted,
-      VolumeLevel: Math.round(volume * 100),
       CanSeek: true,
-      PlayMethod: "DirectStream",
-      RepeatMode: "RepeatNone",
-      PlaybackOrder: "Default",
+      PlayMethod: mode.playMethod || "DirectPlay",
+      RepeatMode: REPEAT_MODE_NAMES[mode.repeat] || "RepeatNone",
+      PlaybackOrder: mode.shuffle ? "Shuffle" : "Default",
+    };
+  }
+
+  reportStart(item, opts = {}) {
+    return this.post(
+      "/Sessions/Playing",
+      undefined,
+      this._playbackState(item, opts)
+    ).catch(() => {});
+  }
+
+  reportProgress(item, { volume = 1, ...opts }) {
+    return this.post("/Sessions/Playing/Progress", undefined, {
+      ...this._playbackState(item, opts),
+      VolumeLevel: Math.round(volume * 100),
       EventName: "timeupdate",
     }).catch(() => {});
   }

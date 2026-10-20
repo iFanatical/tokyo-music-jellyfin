@@ -62,6 +62,7 @@ export const icons = {
   sparkle: wrap('<path d="M12 3v5M12 16v5M3 12h5M16 12h5"/><path d="m6.3 6.3 3 3M14.7 14.7l3 3M17.7 6.3l-3 3M9.3 14.7l-3 3"/>'),
   disc: wrap('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.6"/>'),
   info: wrap('<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.8" r="0.9" fill="currentColor"/>'),
+  lyrics: wrap('<path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M18.5 11a6.5 6.5 0 0 1-13 0M12 17.5V21"/>'),
   music: wrap('<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.6"/><circle cx="17.5" cy="16" r="2.6"/>'),
   keyboard: wrap('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/>'),
 };

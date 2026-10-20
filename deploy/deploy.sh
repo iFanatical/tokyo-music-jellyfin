@@ -51,20 +51,36 @@ trap '' PIPE
 
 mkdir -p "$DEST"
 
-# --delete keeps the target clean; the excludes guard local-only files.
+# Only the app is shipped: tests, tools and their reports (which hold
+# personal library data) stay on the workstation. --delete keeps the shipped
+# paths clean; anything else on the target is left alone, and a config.js
+# that only exists there is never removed.
 if command -v rsync >/dev/null 2>&1; then
   rsync -a --delete \
-    --exclude '.git' \
-    --exclude 'node_modules' \
+    --filter 'P /config.js' \
     --exclude '*.pyc' \
     --exclude '__pycache__' \
-    --exclude 'deploy/config.env' \
+    --exclude '/deploy/config.env' \
+    --include '/index.html' \
+    --include '/manifest.webmanifest' \
+    --include '/sw.js' \
+    --include '/config.js' \
+    --include '/serve.py' \
+    --include '/README.md' \
+    --include '/LICENSE' \
+    --include '/assets/***' \
+    --include '/css/***' \
+    --include '/js/***' \
+    --include '/deploy/***' \
+    --exclude '*' \
     "$SRC"/ "$DEST"/
 else
   echo "  (rsync not found, falling back to cp)"
   rm -rf "${DEST:?}"/*
-  cp -r "$SRC"/index.html "$SRC"/css "$SRC"/js "$SRC"/serve.py "$SRC"/deploy "$DEST"/
+  cp -r "$SRC"/index.html "$SRC"/manifest.webmanifest "$SRC"/sw.js \
+    "$SRC"/assets "$SRC"/css "$SRC"/js "$SRC"/serve.py "$SRC"/deploy "$DEST"/
   [[ -f "$SRC/README.md" ]] && cp "$SRC/README.md" "$DEST"/
+  [[ -f "$SRC/config.js" ]] && cp "$SRC/config.js" "$DEST"/
   rm -f "$DEST/deploy/config.env"
 fi
 

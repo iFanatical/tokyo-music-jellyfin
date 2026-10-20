@@ -6,11 +6,36 @@ import { el, $, clear } from "./util.js";
 
 const LS_LAST_SERVER = "tokyomusic.lastServer";
 
+/**
+ * Deployment-specific default server from the optional, gitignored config.js
+ * (see config.example.js). "{hostname}" expands to the page's hostname, so one
+ * file serves every name the deployment is reached by.
+ */
+function configuredServer() {
+  const value = window.TOKYO_MUSIC_CONFIG?.defaultServer;
+  if (typeof value !== "string" || !value.trim()) return null;
+  return value.trim().replaceAll("{hostname}", location.hostname);
+}
+
 /** Best guess at the Jellyfin address, given where this page is served from. */
 function guessServer() {
   const saved = localStorage.getItem(LS_LAST_SERVER);
-  if (saved) return saved;
+  const configured = configuredServer();
+  if (saved) {
+    try {
+      // An https page cannot call an http server (mixed content), so a saved
+      // http address is useless here; prefer the deployment's default.
+      const previous = new URL(saved);
+      if (configured && location.protocol === "https:" && previous.protocol === "http:") {
+        return configured;
+      }
+    } catch {
+      // Keep the saved value so the user can correct it in the visible field.
+    }
+    return saved;
+  }
   if (api.server) return api.server;
+  if (configured) return configured;
   const { protocol, hostname, port } = location;
   if (protocol === "file:") return "http://localhost:8096";
   // Served from Jellyfin itself? Then the origin already is the server.
@@ -18,7 +43,7 @@ function guessServer() {
   return `${protocol}//${hostname}:8096`;
 }
 
-export function loginScreen(onSuccess) {
+export function loginScreen(onSuccess, notice = "") {
   const root = el("div.login-screen");
 
   const err = el("div.login-error", { hidden: true });
@@ -29,6 +54,7 @@ export function loginScreen(onSuccess) {
   const hideErr = () => {
     err.hidden = true;
   };
+  if (notice) showErr(notice);
 
   const serverInput = el("input", {
     type: "text",

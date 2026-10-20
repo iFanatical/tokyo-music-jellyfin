@@ -3,6 +3,8 @@
 import { api } from "./api.js";
 import { player } from "./player.js";
 import { rangeControl } from "./range.js";
+import { lyricsPanel } from "./lyrics.js";
+import { canInstall, promptInstall } from "./pwa.js";
 import { volumeLabel, volumeGain, parseVolumeDb } from "./volume.js";
 import { icons } from "./icons.js";
 import { navigate, routes, linkify } from "./nav.js";
@@ -106,6 +108,12 @@ export function buildSidebar({ onLogout }) {
           label: "Reload library",
           icon: "refresh",
           onClick: () => window.dispatchEvent(new CustomEvent("tm:refresh")),
+        },
+        // Only offered once the browser says the app can be installed.
+        canInstall() && {
+          label: "Install app",
+          icon: "plus",
+          onClick: () => promptInstall().catch(() => {}),
         },
         "sep",
         { label: "Sign out", icon: "logout", danger: true, onClick: onLogout },
@@ -604,8 +612,23 @@ export function buildPlayerBar({ onToggleQueue, onToggleFullscreen }) {
    Fullscreen player
    ============================================================ */
 
+const LS_SHOW_LYRICS = "tokyomusic.showLyrics";
+
 export function buildFullscreenPlayer() {
   const art = el("div.fullscreen-art");
+  const lyrics = lyricsPanel({ onSeek: (sec) => player.seek(sec) });
+  let showLyrics = false;
+  try {
+    showLyrics = localStorage.getItem(LS_SHOW_LYRICS) === "1";
+  } catch {
+    /* default off */
+  }
+  const lyricsBtn = el("button.icon-btn", {
+    html: icons.lyrics,
+    title: "Lyrics (Y)",
+    "aria-pressed": "false",
+    onclick: () => root.toggleLyrics(),
+  });
   const title = el("div.fullscreen-title", { text: "Nothing playing" });
   const artist = el("div.fullscreen-artist", { text: "—" });
   const playBtn = el("button.btn-play.fullscreen-play", {
@@ -637,10 +660,32 @@ export function buildFullscreenPlayer() {
         title: "Next",
         onclick: () => player.next(),
       }),
+      lyricsBtn,
     ]),
     el("div.fullscreen-seek.seek-row", {}, [curTime, seek, durTime]),
   ]);
-  const root = el("div.fullscreen-player", { hidden: true }, [art, controls]);
+  const root = el("div.fullscreen-player", { hidden: true }, [art, lyrics, controls]);
+
+  /* Lyrics are fetched only while the panel is on screen. */
+  function syncLyrics() {
+    root.classList.toggle("with-lyrics", showLyrics);
+    lyricsBtn.classList.toggle("on", showLyrics);
+    lyricsBtn.setAttribute("aria-pressed", String(showLyrics));
+    if (showLyrics && !root.hidden) {
+      lyrics.load(player.current);
+      lyrics.update(player.position, false);
+    }
+  }
+
+  root.toggleLyrics = () => {
+    showLyrics = !showLyrics;
+    try {
+      localStorage.setItem(LS_SHOW_LYRICS, showLyrics ? "1" : "0");
+    } catch {
+      /* preference just won't persist */
+    }
+    syncLyrics();
+  };
   let hideTimer = 0;
 
   function renderTrack() {
@@ -667,6 +712,7 @@ export function buildFullscreenPlayer() {
       art.append(el("div.fullscreen-art-fallback", { html: icons.music }));
     }
     durTime.textContent = fmtTime(player.duration);
+    syncLyrics();
   }
 
   function renderState() {
@@ -696,7 +742,10 @@ export function buildFullscreenPlayer() {
     root.hidden = !active;
     root.classList.remove("idle");
     clearTimeout(hideTimer);
-    if (active) showControls();
+    if (active) {
+      showControls();
+      syncLyrics();
+    }
   });
 
   root.toggle = async () => {
@@ -727,6 +776,7 @@ export function buildFullscreenPlayer() {
       curTime.textContent = fmtTime(position);
     }
     durTime.textContent = fmtTime(duration);
+    if (showLyrics && !root.hidden) lyrics.update(position);
   });
 
   renderTrack();
@@ -768,9 +818,7 @@ export function buildQueuePanel() {
   ]);
 
   function qRow(track, i) {
-    const isCurrent = i === player.index;
     const row = el("div.qitem", {
-      class: isCurrent ? "current" : "",
       title: displayName(track, "Unknown track"),
       onclick: () => player.jumpTo(i),
       oncontextmenu: (e) => trackMenu(e, track, { tracks: player.queue, index: i }),
@@ -827,8 +875,26 @@ export function buildQueuePanel() {
     return row;
   }
 
+  /* Rows are cached while the queue order is unchanged: skipping a track
+     only regroups the sections, which would otherwise rebuild every row
+     (art, drag handlers) on each track change of a long queue. Row closures
+     capture their index, so any change to the order rebuilds the cache. */
+  let rows = [];
+  let rowsKey = "";
+
+  function rowAt(i) {
+    const row = rows[i];
+    row.classList.toggle("current", i === player.index);
+    return row;
+  }
+
   function render() {
     const q = player.queue;
+    const key = q.map((t) => t.Id).join(",");
+    if (key !== rowsKey) {
+      rows = q.map((t, i) => qRow(t, i));
+      rowsKey = key;
+    }
     clear(scroll);
 
     subtitle.textContent = player.context?.name
@@ -850,19 +916,19 @@ export function buildQueuePanel() {
 
     if (player.index >= 0) {
       scroll.append(el("div.queue-section", { text: "Now playing" }));
-      scroll.append(qRow(q[player.index], player.index));
+      scroll.append(rowAt(player.index));
     }
 
     const upcoming = q.slice(player.index + 1);
     if (upcoming.length) {
       scroll.append(el("div.queue-section", { text: "Next up" }));
-      upcoming.forEach((t, n) => scroll.append(qRow(t, player.index + 1 + n)));
+      upcoming.forEach((_, n) => scroll.append(rowAt(player.index + 1 + n)));
     }
 
     const history = q.slice(0, Math.max(0, player.index));
     if (history.length) {
       scroll.append(el("div.queue-section", { text: "Played" }));
-      history.forEach((t, n) => scroll.append(qRow(t, n)));
+      history.forEach((_, n) => scroll.append(rowAt(n)));
     }
   }
 

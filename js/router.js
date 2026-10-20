@@ -75,9 +75,10 @@ export class Router {
     const match = TABLE.find(([re]) => re.test(path));
     this.onRouteChange?.(match ? match[2] : null, { path, query });
 
-    // Tear down listeners registered by the outgoing view's components.
+    // Tear down listeners registered by the outgoing view's components. Any
+    // element holding a subscription marks itself with data-tm-destroy.
     this.outlet
-      .querySelectorAll(".tracklist")
+      .querySelectorAll("[data-tm-destroy]")
       .forEach((n) => n.dispatchEvent(new CustomEvent("tm:destroy")));
 
     if (!match) {

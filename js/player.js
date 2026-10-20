@@ -5,7 +5,40 @@ import { emitter, shuffled, ticksToSec, artistsOf, throttle } from "./util.js";
 import { VOLUME_SCALE, volumeGain, gainPosition, createVolumeGraph } from "./volume.js";
 
 const LS_PREFS = "tokyomusic.player";
+const LS_QUEUE = "tokyomusic.queue";
 const REPEAT_MODES = ["none", "all", "one"];
+
+/** Seconds before the end of a track at which the next one starts buffering. */
+const PRELOAD_LEAD_SEC = 30;
+
+/** Saved queues longer than this are trimmed around the current track. */
+const MAX_SAVED_TRACKS = 3000;
+
+/** Track fields the UI needs after a reload; everything else is dropped so a
+    long queue stays well inside the localStorage quota. */
+const SAVED_TRACK_FIELDS = [
+  "Id", "Name", "Type", "MediaType", "Album", "AlbumId", "AlbumArtist",
+  "AlbumArtists", "Artists", "ArtistItems", "AlbumPrimaryImageTag",
+  "PrimaryImageTag", "RunTimeTicks", "IndexNumber", "ParentIndexNumber",
+  "ProductionYear", "Container", "Bitrate", "HasLyrics",
+];
+
+function slimTrack(t) {
+  const out = {};
+  for (const k of SAVED_TRACK_FIELDS) if (t[k] != null) out[k] = t[k];
+  if (t.ImageTags?.Primary) out.ImageTags = { Primary: t.ImageTags.Primary };
+  const source = t.MediaSources?.[0];
+  if (source) out.MediaSources = [{ Container: source.Container, Bitrate: source.Bitrate }];
+  if (t.UserData) out.UserData = { IsFavorite: Boolean(t.UserData.IsFavorite) };
+  return out;
+}
+
+function createAudio() {
+  const a = new Audio();
+  a.preload = "auto";
+  a.crossOrigin = "anonymous";
+  return a;
+}
 
 class Player {
   constructor() {
@@ -13,9 +46,14 @@ class Player {
     this.on = bus.on;
     this._emit = bus.emit;
 
-    this.audio = new Audio();
-    this.audio.preload = "auto";
-    this.audio.crossOrigin = "anonymous";
+    /** The element currently playing. Gapless playback swaps it with
+        `_standby`, which buffers the next track ahead of time. */
+    this.audio = createAudio();
+    this._standby = null;
+    /** What `_standby` holds: { track, maxBitrate }. */
+    this._preload = null;
+    /** Media elements already routed into the Web Audio graph. */
+    this._routed = new WeakSet();
 
     /** Tracks in play order. */
     this.queue = [];
@@ -34,24 +72,33 @@ class Player {
     this.context = null;
 
     this._loadPrefs();
-    this._wireAudio();
+    this._wireAudio(this.audio);
     this._wireMediaSession();
+
+    /** The track Jellyfin was last told started, until it is told it stopped. */
+    this._reportedItem = null;
 
     this._reportProgress = throttle(() => {
       const t = this.current;
       if (!t) return;
-      api.reportProgress(t, {
-        positionSec: this.audio.currentTime,
-        isPaused: this.audio.paused,
-        volume: this.volume,
-        isMuted: this.muted,
-      });
+      api.reportProgress(t, this._reportState());
     }, 10000);
+
+    // Persist the queue for the next page load. Structure changes are
+    // batched; the position is saved every few seconds while playing.
+    let saveTimer = 0;
+    const scheduleSave = () => {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => this._saveQueue(), 300);
+    };
+    this.on("queue", scheduleSave);
+    this.on("track", scheduleSave);
+    this._savePosition = throttle(() => this._saveQueue(), 5000);
 
     // Best-effort "stopped" report if the tab closes mid-track.
     window.addEventListener("pagehide", () => {
-      const t = this.current;
-      if (t && !this.audio.paused) api.reportStopped(t, this.audio.currentTime);
+      this._saveQueue();
+      if (!this.audio.paused) this._reportStop(this.audio.currentTime);
     });
   }
 
@@ -96,6 +143,35 @@ class Player {
     this.audio.muted = this.muted;
   }
 
+  /** Position, mute and mode fields for a progress or start report. */
+  _reportState(overrides = {}) {
+    return {
+      positionSec: this.audio.currentTime,
+      isPaused: this.audio.paused,
+      volume: this.volume,
+      isMuted: this.muted,
+      mode: {
+        playMethod: api.playMethod(this.current, this.maxBitrate),
+        repeat: this.repeat,
+        shuffle: this.shuffle,
+      },
+      ...overrides,
+    };
+  }
+
+  _reportStart(track, positionSec = 0) {
+    this._reportedItem = track;
+    api.reportStart(track, this._reportState({ positionSec, isPaused: false }));
+  }
+
+  /** Reports the started track as stopped, exactly once per start. */
+  _reportStop(positionSec) {
+    const t = this._reportedItem;
+    if (!t) return;
+    this._reportedItem = null;
+    api.reportStopped(t, positionSec);
+  }
+
   _savePrefs() {
     localStorage.setItem(
       LS_PREFS,
@@ -110,15 +186,24 @@ class Player {
     );
   }
 
-  _wireAudio() {
-    const a = this.audio;
+  /** Wires an element's events. Both elements are wired once; events from
+      the one not currently playing are ignored, except a failed preload. */
+  _wireAudio(a) {
+    const on = (type, fn) =>
+      a.addEventListener(type, (e) => {
+        if (a === this.audio) fn(e);
+      });
 
-    a.addEventListener("timeupdate", () => {
+    on("timeupdate", () => {
       this._emit("time", { position: a.currentTime, duration: this.duration });
-      if (!a.paused) this._reportProgress();
+      if (!a.paused) {
+        this._reportProgress();
+        this._savePosition();
+        this._maybePreload();
+      }
     });
 
-    a.addEventListener("progress", () => {
+    on("progress", () => {
       let buffered = 0;
       try {
         if (a.buffered.length)
@@ -129,34 +214,38 @@ class Player {
       this._emit("buffer", { buffered, duration: this.duration });
     });
 
-    a.addEventListener("play", () => {
+    on("play", () => {
       this._emit("state", this.snapshot());
       this._updateMediaSessionState();
     });
 
-    a.addEventListener("playing", () => {
+    on("playing", () => {
       this._syncMediaSession();
     });
 
-    a.addEventListener("pause", () => {
+    on("pause", () => {
       this._emit("state", this.snapshot());
       this._syncMediaSession();
       const t = this.current;
-      if (t) api.reportProgress(t, {
-        positionSec: a.currentTime,
-        isPaused: true,
-        volume: this.volume,
-        isMuted: this.muted,
-      });
+      if (t) api.reportProgress(t, this._reportState({ isPaused: true }));
+      this._saveQueue();
     });
 
-    a.addEventListener("ended", () => this._onEnded());
+    on("ended", () => this._onEnded());
 
-    a.addEventListener("loadedmetadata", () => {
+    on("loadedmetadata", () => {
+      if (this._pendingSeek != null) {
+        a.currentTime = this._pendingSeek;
+        this._pendingSeek = null;
+      }
       this._emit("time", { position: a.currentTime, duration: this.duration });
     });
 
     a.addEventListener("error", () => {
+      if (a !== this.audio) this._preload = null;
+    });
+
+    on("error", () => {
       const t = this.current;
       const code = a.error?.code;
       // code 4 = SRC_NOT_SUPPORTED; usually a container the browser refuses.
@@ -192,15 +281,16 @@ class Player {
     this.context = context;
     this._unshuffled = null;
 
+    const start = Math.max(0, Math.min(startIndex, tracks.length - 1));
     if (this.shuffle) {
-      const first = tracks[startIndex] || tracks[0];
-      const rest = tracks.filter((_, i) => i !== startIndex);
+      const first = tracks[start];
+      const rest = tracks.filter((_, i) => i !== start);
       this._unshuffled = tracks;
       this.queue = [first, ...shuffled(rest)];
       this.index = 0;
     } else {
       this.queue = tracks;
-      this.index = Math.max(0, Math.min(startIndex, tracks.length - 1));
+      this.index = start;
     }
 
     this._emit("queue", this.snapshot());
@@ -213,7 +303,7 @@ class Player {
     if (!this.shuffle) this.toggleShuffle(true);
     const order = shuffled(items);
     this.context = context;
-    this._unshuffled = items;
+    this._unshuffled = items.slice();
     this.queue = order;
     this.index = 0;
     this._emit("queue", this.snapshot());
@@ -225,6 +315,11 @@ class Player {
     if (!tracks.length) return;
     if (!this.queue.length) return this.play(tracks, 0, null);
     this.queue.splice(this.index + 1, 0, ...tracks);
+    // Keep the pre-shuffle order in step, or switching shuffle off drops them.
+    if (this._unshuffled) {
+      const at = this._unshuffled.indexOf(this.current);
+      this._unshuffled.splice(at + 1, 0, ...tracks);
+    }
     this._emit("queue", this.snapshot());
   }
 
@@ -233,17 +328,23 @@ class Player {
     if (!tracks.length) return;
     if (!this.queue.length) return this.play(tracks, 0, null);
     this.queue.push(...tracks);
+    this._unshuffled?.push(...tracks);
     this._emit("queue", this.snapshot());
   }
 
   removeAt(i) {
     if (i < 0 || i >= this.queue.length) return;
-    this.queue.splice(i, 1);
+    const [removed] = this.queue.splice(i, 1);
+    if (this._unshuffled) {
+      const at = this._unshuffled.indexOf(removed);
+      if (at >= 0) this._unshuffled.splice(at, 1);
+    }
     if (i < this.index) this.index--;
     else if (i === this.index) {
+      const wasPlaying = !this.audio.paused;
       if (this.index >= this.queue.length) this.index = this.queue.length - 1;
       if (this.index < 0) return this.stop();
-      this._load(true);
+      this._load(wasPlaying);
     }
     this._emit("queue", this.snapshot());
   }
@@ -263,6 +364,7 @@ class Player {
     const cur = this.current;
     this.queue = cur ? [cur] : [];
     this.index = cur ? 0 : -1;
+    this._unshuffled = this.shuffle && cur ? [cur] : null;
     this._emit("queue", this.snapshot());
   }
 
@@ -279,19 +381,20 @@ class Player {
     const track = this.current;
     if (!track) return;
 
-    const prev = this._reportedItem;
-    if (prev && prev.Id !== track.Id) api.reportStopped(prev, this._lastPos || 0);
+    this._reportStop(this.audio.currentTime);
+    this._pendingSeek = null;
 
-    this.audio.src = api.streamUrl(track, { maxBitrate: this.maxBitrate });
-    this.audio.load();
+    if (!this._swapToPreloaded(track)) {
+      this.audio.src = api.streamUrl(track, { maxBitrate: this.maxBitrate });
+      this.audio.load();
+    }
     this._emit("track", this.snapshot());
 
     if (autoplay) {
       try {
         await this._playAudio();
         this._syncMediaSession();
-        this._reportedItem = track;
-        api.reportStart(track, { positionSec: 0 });
+        this._reportStart(track, 0);
       } catch (e) {
         if (e.name !== "AbortError") {
           this._emit("error", {
@@ -309,14 +412,70 @@ class Player {
     this._emit("state", this.snapshot());
   }
 
+  /* ---------------- gapless ---------------- */
+
+  /** Queue index that plays after the current track ends, or -1. */
+  _nextIndex() {
+    if (this.repeat === "one" || this.index < 0) return -1;
+    if (this.index < this.queue.length - 1) return this.index + 1;
+    return this.repeat === "all" && this.queue.length > 1 ? 0 : -1;
+  }
+
+  /**
+   * Starts buffering the next track in the standby element once the current
+   * one is near its end, so the switch on "ended" has no network wait.
+   * Only direct-play tracks are preloaded: a second transcode for the same
+   * device could make the server cut off the one that is playing.
+   */
+  _maybePreload() {
+    const remaining = this.duration - this.audio.currentTime;
+    if (!(remaining > 0 && remaining <= PRELOAD_LEAD_SEC)) return;
+    const next = this.queue[this._nextIndex()];
+    if (!next || next === this.current) return;
+    if (this._preload?.track === next && this._preload.maxBitrate === this.maxBitrate) return;
+    if (api.playMethod(next, this.maxBitrate) !== "DirectPlay") return;
+
+    if (!this._standby) {
+      this._standby = createAudio();
+      this._standby.muted = this.muted;
+      this._wireAudio(this._standby);
+    }
+    this._preload = { track: next, maxBitrate: this.maxBitrate };
+    this._routeElement(this._standby);
+    this._applyVolume(this._standby);
+    this._standby.src = api.streamUrl(next, { maxBitrate: this.maxBitrate });
+    this._standby.load();
+  }
+
+  /** Makes the standby element active if it already holds `track`. */
+  _swapToPreloaded(track) {
+    const pre = this._preload;
+    this._preload = null;
+    if (!pre || pre.track !== track || pre.maxBitrate !== this.maxBitrate) return false;
+    const old = this.audio;
+    this.audio = this._standby;
+    this._standby = old;
+    old.pause();
+    old.removeAttribute("src");
+    old.load();
+    return true;
+  }
+
+  _clearPreload() {
+    this._preload = null;
+    if (this._standby?.getAttribute?.("src")) {
+      this._standby.removeAttribute("src");
+      this._standby.load();
+    }
+  }
+
   async toggle() {
     if (!this.current) return;
     if (this.audio.paused) {
       try {
         await this._playAudio();
-        if (this._reportedItem?.Id !== this.current.Id) {
-          this._reportedItem = this.current;
-          api.reportStart(this.current, { positionSec: this.audio.currentTime });
+        if (this._reportedItem !== this.current) {
+          this._reportStart(this.current, this.audio.currentTime);
         }
       } catch {
         /* surfaced via the audio error handler */
@@ -332,7 +491,6 @@ class Player {
 
   next(auto = false) {
     if (!this.queue.length) return;
-    this._lastPos = this.audio.currentTime;
 
     if (this.index < this.queue.length - 1) {
       this.index++;
@@ -370,25 +528,24 @@ class Player {
 
   _onEnded() {
     const t = this.current;
-    if (t) api.reportStopped(t, this.duration);
+    this._reportStop(this.duration);
 
     if (this.repeat === "one") {
       this.audio.currentTime = 0;
       this._playAudio().catch(() => {});
-      if (t) api.reportStart(t, { positionSec: 0 });
+      if (t) this._reportStart(t, 0);
       return;
     }
     this.next(true);
   }
 
   stop() {
-    const t = this.current;
-    if (t) api.reportStopped(t, this.audio.currentTime);
+    this._reportStop(this.audio.currentTime);
+    this._clearPreload();
     this.audio.pause();
     this.audio.removeAttribute("src");
     this.audio.load();
     this.index = -1;
-    this._reportedItem = null;
     this._syncMediaSession();
     this._emit("track", this.snapshot());
     this._emit("state", this.snapshot());
@@ -417,6 +574,7 @@ class Player {
         // Create only one source per media element, reused for every track.
         source = context.createMediaElementSource(this.audio);
         source.connect(graph.input);
+        this._routed.add(this.audio);
         this._audioContext = context;
         this._volumeGraph = graph;
         this.audio.volume = 1;
@@ -434,15 +592,32 @@ class Player {
         this._emit("error", { message: "Audio boost is unavailable in this browser; volume is limited to 0 dB." });
       }
     }
+    this._routeElement(this.audio);
     if (this._audioContext?.state !== "running" && this._audioContext) {
       await this._audioContext.resume();
     }
     return this.audio.play();
   }
 
-  _applyVolume() {
+  /** Sends an element through the volume graph, once per element. Without a
+      graph (no Web Audio, or it failed) elements play directly. */
+  _routeElement(a) {
+    if (!this._volumeGraph || this._routed.has(a)) return;
+    try {
+      this._audioContext.createMediaElementSource(a).connect(this._volumeGraph.input);
+      this._routed.add(a);
+      a.volume = 1;
+    } catch {
+      /* the element keeps playing directly at its own volume */
+    }
+  }
+
+  _applyVolume(only) {
     if (this._volumeGraph) this._volumeGraph.set(this.volume);
-    else this.audio.volume = Math.min(1, volumeGain(this.volume));
+    const level = Math.min(1, volumeGain(this.volume));
+    for (const a of only ? [only] : [this.audio, this._standby]) {
+      if (a && !this._routed.has(a)) a.volume = level;
+    }
   }
 
   setVolume(v) {
@@ -457,6 +632,7 @@ class Player {
   setMuted(m) {
     this.muted = m;
     this.audio.muted = m;
+    if (this._standby) this._standby.muted = m;
     this._savePrefs();
     this._emit("volume", { volume: this.volume, muted: this.muted });
   }
@@ -468,6 +644,7 @@ class Player {
   setMaxBitrate(bps) {
     this.maxBitrate = bps || 0;
     this._savePrefs();
+    this._clearPreload();
     // Re-open the stream at the new ceiling, preserving position.
     if (this.current) {
       const pos = this.audio.currentTime;
@@ -476,7 +653,9 @@ class Player {
         maxBitrate: this.maxBitrate,
       });
       this.audio.load();
-      this.audio.currentTime = pos;
+      // Seeking before metadata loads is ignored, so restore the position
+      // once the new stream can take it.
+      this._pendingSeek = pos;
       if (wasPlaying) this._playAudio().catch(() => {});
     }
     this._emit("state", this.snapshot());
@@ -496,9 +675,9 @@ class Player {
       } else if (this._unshuffled) {
         this.queue = this._unshuffled;
         this._unshuffled = null;
-        this.index = cur
-          ? Math.max(0, this.queue.findIndex((t) => t.Id === cur.Id))
-          : -1;
+        let at = cur ? this.queue.indexOf(cur) : -1;
+        if (cur && at < 0) at = this.queue.findIndex((t) => t.Id === cur.Id);
+        this.index = cur ? Math.max(0, at) : -1;
       }
     }
     this._savePrefs();
@@ -526,6 +705,105 @@ class Player {
       context: this.context,
       maxBitrate: this.maxBitrate,
     };
+  }
+
+  /* ---------------- saved queue ---------------- */
+
+  /** Writes the queue and position for restoreQueue(). Tied to the signed-in
+      user and server, so another account never inherits it. */
+  _saveQueue() {
+    try {
+      // Signed out (or the session just expired): leave any saved queue be,
+      // so signing back in as the same user picks it up again.
+      if (!api.userId) return;
+      if (!this.current) {
+        localStorage.removeItem(LS_QUEUE);
+        return;
+      }
+      // Keep a window around the current track when the queue is huge.
+      let from = 0;
+      if (this.queue.length > MAX_SAVED_TRACKS) {
+        from = Math.max(0, Math.min(this.index - 100, this.queue.length - MAX_SAVED_TRACKS));
+      }
+      const queue = this.queue.slice(from, from + MAX_SAVED_TRACKS);
+
+      // The pre-shuffle order is saved as positions within `queue`.
+      let unshuffled = null;
+      if (this._unshuffled && !from && this._unshuffled.length === queue.length) {
+        const slots = new Map();
+        queue.forEach((t, i) => {
+          if (!slots.has(t)) slots.set(t, []);
+          slots.get(t).push(i);
+        });
+        unshuffled = this._unshuffled.map((t) => slots.get(t)?.shift() ?? -1);
+        if (unshuffled.includes(-1)) unshuffled = null;
+      }
+
+      localStorage.setItem(
+        LS_QUEUE,
+        JSON.stringify({
+          v: 1,
+          server: api.server,
+          userId: api.userId,
+          queue: queue.map(slimTrack),
+          index: this.index - from,
+          position: this.audio.currentTime || 0,
+          context: this.context,
+          unshuffled,
+        })
+      );
+    } catch {
+      /* quota or storage blocked; losing the saved queue is harmless */
+    }
+  }
+
+  /**
+   * Puts back the queue from the previous page load, paused at the saved
+   * position. Returns whether anything was restored.
+   */
+  restoreQueue() {
+    let saved;
+    try {
+      saved = JSON.parse(localStorage.getItem(LS_QUEUE) || "null");
+    } catch {
+      return false;
+    }
+    if (
+      saved?.v !== 1 ||
+      saved.server !== api.server ||
+      saved.userId !== api.userId ||
+      !Array.isArray(saved.queue) ||
+      !saved.queue.length ||
+      this.queue.length
+    ) {
+      return false;
+    }
+
+    this.queue = saved.queue;
+    this.index = Math.max(0, Math.min(Number(saved.index) || 0, this.queue.length - 1));
+    this.context = saved.context || null;
+    this._unshuffled =
+      this.shuffle && Array.isArray(saved.unshuffled)
+        ? saved.unshuffled.map((i) => this.queue[i]).filter(Boolean)
+        : null;
+    if (this._unshuffled?.length !== this.queue.length) this._unshuffled = null;
+
+    this._emit("queue", this.snapshot());
+    this._load(false);
+    const position = Number(saved.position) || 0;
+    if (position > 0) {
+      this._pendingSeek = position;
+      this._emit("time", { position, duration: this.duration });
+    }
+    return true;
+  }
+
+  clearSavedQueue() {
+    try {
+      localStorage.removeItem(LS_QUEUE);
+    } catch {
+      /* nothing to clear */
+    }
   }
 
   /* ---------------- OS media keys ---------------- */

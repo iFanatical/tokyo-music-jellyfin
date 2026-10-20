@@ -1,8 +1,14 @@
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const assert = require('node:assert/strict');
+const CHROME = process.env.CHROME_BIN || 'chromium';
+// Skip rather than fail where no browser is installed (CI, minimal hosts).
+if (spawnSync(CHROME, ['--version'], { stdio: 'ignore' }).error) {
+  console.log(`skip: ${CHROME} not found (set CHROME_BIN to run browser tests)`);
+  process.exit(0);
+}
 const profile = fs.mkdtempSync('/tmp/tokyo-playlist-chrome-');
-const browser = spawn(process.env.CHROME_BIN || 'chromium',
+const browser = spawn(CHROME,
   ['--headless', '--no-sandbox', '--disable-gpu', '--mute-audio', '--autoplay-policy=no-user-gesture-required',
    '--remote-debugging-port=0', '--user-data-dir=' + profile, 'about:blank'], {stdio:'ignore'});
 const sleep = ms => new Promise(r => setTimeout(r, ms));
