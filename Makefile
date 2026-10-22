@@ -6,6 +6,9 @@
 
 .PHONY: test test-js test-browser test-py
 
+# The tag tools need mutagen; prefer the project venv when there is one.
+PY ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
+
 test: test-js test-browser test-py
 
 test-js:
@@ -15,4 +18,4 @@ test-browser:
 	@for f in tests/*.cjs; do echo "== $$f"; node "$$f" || exit 1; done
 
 test-py:
-	python3 -m unittest discover -s tests -p 'test_*.py'
+	$(PY) -m unittest discover -s tests -p 'test_*.py'

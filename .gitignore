@@ -30,6 +30,8 @@ deploy/config.env
 
 # Default output from the tag maintenance tool
 tag-backups/
+disc-number-undo.json
+disc-number-undo.json.tmp
 artwork-report.json
 stale-library-report.json
 stale-library-cleanup-result.json

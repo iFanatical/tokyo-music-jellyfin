@@ -357,6 +357,19 @@ def jellyfin_request(base, token, path, method="GET", params=None):
         return json.loads(body) if body else None
 
 
+def jellyfin_all_items(base, token, params, page=2000):
+    """Every item matching params; /Items caps a single response."""
+    items, start = [], 0
+    while True:
+        data = jellyfin_request(base, token, "/Items", params={
+            **params, "StartIndex": str(start), "Limit": str(page)}) or {}
+        batch = data.get("Items", [])
+        items.extend(batch)
+        if len(batch) < page:
+            return items
+        start += page
+
+
 def refresh_jellyfin(base, token, changed_dirs, media_root, server_root,
                      changed_files=()):
     """Refresh albums covering the changed files, then rescan the library.
@@ -367,9 +380,8 @@ def refresh_jellyfin(base, token, changed_dirs, media_root, server_root,
     """
     print("\nJellyfin: locating affected albums")
     try:
-        data = jellyfin_request(base, token, "/Items", params={
-            "IncludeItemTypes": "MusicAlbum", "Recursive": "true",
-            "Limit": "5000", "Fields": "Path",
+        album_items = jellyfin_all_items(base, token, {
+            "IncludeItemTypes": "MusicAlbum", "Recursive": "true", "Fields": "Path",
         })
     except (urllib.error.URLError, urllib.error.HTTPError) as exc:
         print(f"  ! could not query Jellyfin: {exc}")
@@ -384,7 +396,7 @@ def refresh_jellyfin(base, token, changed_dirs, media_root, server_root,
 
     wanted = {to_server_path(d) for d in changed_dirs}
     albums = []
-    for album in (data or {}).get("Items", []):
+    for album in album_items:
         apath = album.get("Path")
         if apath and any(w == apath or w.startswith(apath.rstrip("/") + "/") for w in wanted):
             albums.append(album["Id"])
@@ -404,15 +416,13 @@ def refresh_jellyfin(base, token, changed_dirs, media_root, server_root,
     if changed_files:
         wanted_files = {to_server_path(f) for f in changed_files}
         try:
-            tracks = jellyfin_request(base, token, "/Items", params={
-                "IncludeItemTypes": "Audio", "Recursive": "true",
-                "Limit": "20000", "Fields": "Path",
-            }) or {}
+            tracks = jellyfin_all_items(base, token, {
+                "IncludeItemTypes": "Audio", "Recursive": "true", "Fields": "Path",
+            })
         except Exception as exc:  # noqa: BLE001
             print(f"  ! could not list tracks: {exc}")
-            tracks = {}
-        ids = [t["Id"] for t in tracks.get("Items", [])
-               if t.get("Path") in wanted_files]
+            tracks = []
+        ids = [t["Id"] for t in tracks if t.get("Path") in wanted_files]
         if ids:
             print(f"  refreshing {len(ids)} track(s) directly")
             for track_id in ids:

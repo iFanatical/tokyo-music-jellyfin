@@ -152,6 +152,40 @@ writes anything. Use `--canonical canonical.json` for established spelling
 corrections and `--fix-encoding` for the same conservative encoding repair as
 the maintenance tool.
 
+The plan also warns, without blocking the import, about albums that will play
+out of order in Jellyfin: track numbers that repeat with no disc numbers set
+(see below), or two files with the same disc and track number.
+
+## Fixing multi-disc albums (`tools/fix-disc-numbers.py`)
+
+Some rippers restart track numbers on each disc of a box set but never write
+`DISCNUMBER`. Jellyfin sorts by disc, then track, so every disc collapses onto
+disc 1 and the album plays all the track 1s, then all the track 2s. The
+filenames normally still carry the real order (`01.` … `13.` … `088.`).
+
+The tool takes each album folder in filename order and starts a new disc
+wherever the track number drops back. It only writes when that order can be
+proven: every filename numbered and strictly increasing, every disc starting at
+track 1. Folders with some disc tags, clashing disc tags, two rips mixed
+together, or unnumbered filenames are listed for a human and left alone.
+Single-disc albums are never touched.
+
+```bash
+tools/fix-disc-numbers.py /mnt/servers/jellyfin/srv/music/library          # dry run
+tools/fix-disc-numbers.py <library> --apply --limit 5                      # a few first
+tools/fix-disc-numbers.py <library> --apply --jellyfin-url https://<host>  # then the rest
+tools/fix-disc-numbers.py --undo disc-number-undo.json                     # reverse
+```
+
+It only adds disc tags to files that have none, so instead of full copies it
+records every write in `disc-number-undo.json` (saved after each album) and
+`--undo` removes exactly what it added. Each file is re-read after writing and
+the run stops if the audio properties (length, sample rate, FLAC stream MD5)
+changed. `--backup-dir` keeps full copies too, which is slow over a network
+mount. With `--jellyfin-url` the changed albums are refreshed with
+`replaceAllMetadata` and the library is rescanned; the token is read from
+`--token`, `$JELLYFIN_TOKEN` or `~/.config/tokyo-music/jellyfin-token`.
+
 ## Filling missing artwork
 
 `tools/fill-missing-artwork.py` searches Jellyfin's configured remote image

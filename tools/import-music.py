@@ -23,6 +23,7 @@ from pathlib import Path
 
 
 _tag_tool = None
+_disc_tool = None
 AUDIO_EXTS = {"flac", "mp3", "m4a", "mp4", "ogg", "oga", "opus", "wma"}
 UNSAFE_MULTIVALUE = {"wma"}
 
@@ -40,6 +41,18 @@ def load_tag_tool():
     return _tag_tool
 
 
+def load_disc_tool():
+    global _disc_tool
+    if _disc_tool is None:
+        path = Path(__file__).with_name("fix-disc-numbers.py")
+        spec = importlib.util.spec_from_file_location("tokyo_music_discs", path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        _disc_tool = module
+    return _disc_tool
+
+
 @dataclass
 class ImportItem:
     source: Path
@@ -49,6 +62,8 @@ class ImportItem:
     album: str
     library_artist: str = ""
     destination: Path | None = None
+    track: int | None = None
+    disc: int | None = None
 
 
 CONTROL_RX = re.compile(r"[\x00-\x1f\x7f]")
@@ -92,7 +107,12 @@ def scan_source(source: Path, canonical, fix_encoding: bool) -> tuple[list[Impor
         if missing:
             errors.append(f"{path}: missing {', '.join(missing)} tag(s)")
             continue
-        items.append(ImportItem(path, artists, albumartists, str(title), str(album)))
+        try:
+            track_no, disc_no = load_disc_tool().read_numbers(str(path))
+        except Exception:  # noqa: BLE001 - numbering only feeds a warning
+            track_no, disc_no = None, None
+        items.append(ImportItem(path, artists, albumartists, str(title), str(album),
+                                track=track_no, disc=disc_no))
     if not items and not errors:
         errors.append(f"{source}: no supported audio files found")
     return items, errors
@@ -137,6 +157,35 @@ def assign_destinations(items: list[ImportItem], library: Path, compilation_arti
             if dest.exists():
                 errors.append(f"destination already exists: {dest}")
     return errors
+
+
+def disc_number_warnings(items: list[ImportItem]) -> list[str]:
+    """Albums whose numbering will make Jellyfin play tracks out of order.
+
+    The usual cause is a ripper that restarts track numbers on each disc but
+    writes no DISCNUMBER, so Jellyfin sorts every disc onto disc 1.
+    """
+    albums: dict[tuple[Path, str], list[ImportItem]] = {}
+    for item in items:
+        albums.setdefault((item.source.parent, item.album.casefold()), []).append(item)
+
+    warnings = []
+    for (folder, _), group in albums.items():
+        pairs = [(i.disc, i.track) for i in group if i.track is not None]
+        repeats = len(pairs) - len(set(pairs))
+        if not repeats:
+            continue
+        name = group[0].album
+        if all(i.disc is None for i in group):
+            warnings.append(
+                f"album {name!r}: {repeats} track number(s) repeat and no disc numbers are set, "
+                f"so Jellyfin will interleave the discs. Fix before importing with:\n"
+                f"      tools/fix-disc-numbers.py {str(folder)!r} --apply")
+        else:
+            warnings.append(
+                f"album {name!r}: {repeats} file(s) share a disc+track number "
+                f"(two copies of a track, or wrong disc tags); check {folder}")
+    return warnings
 
 
 def expected_tags(item: ImportItem):
@@ -210,6 +259,11 @@ def main() -> int:
     for item in items:
         if item.destination:
             print(f"  {item.source.relative_to(source)} -> {item.destination.relative_to(library)}")
+    warnings = disc_number_warnings(items)
+    if warnings:
+        print(f"\nWarning: {len(warnings)} album(s) will play out of order in Jellyfin:")
+        for warning in warnings:
+            print(f"  {warning}")
     if errors:
         print(f"\nRefusing import: {len(errors)} problem(s):", file=sys.stderr)
         for error in errors:
