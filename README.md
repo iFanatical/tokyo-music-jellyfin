@@ -110,7 +110,7 @@ does for a public copy on `:444`. `deploy.sh` copies it and never deletes a
 | `js/router.js` | Hash routing with per-navigation `AbortController` |
 | `serve.py` | Static server |
 | `deploy/` | systemd unit template and install scripts |
-| `tools/` | tag maintenance script |
+| `tools/` | import and tag maintenance scripts |
 | `tests/` | `make test` runs everything; browser tests skip without Chromium |
 
 Everything is audio-scoped at the API layer: queries are restricted to
@@ -185,6 +185,35 @@ changed. `--backup-dir` keeps full copies too, which is slow over a network
 mount. With `--jellyfin-url` the changed albums are refreshed with
 `replaceAllMetadata` and the library is rescanned; the token is read from
 `--token`, `$JELLYFIN_TOKEN` or `~/.config/tokyo-music/jellyfin-token`.
+
+## Genres and box sets from Deezer (`tools/fix-from-deezer.py`)
+
+Ripped files often have no genre, or the store's genre names in another
+language, and some box sets cannot be put in order from their filenames (the
+folders `fix-disc-numbers.py` reports as ambiguous). This tool matches each
+album folder to one album in Deezer's public catalogue, by UPC or by ISRC, and
+uses it only when that album holds most of the folder's ISRCs
+(`--min-coverage`, default 0.8). No account or key is needed.
+
+- **Genres**: every file in a matched folder gets the Deezer album's genres, so
+  the whole library uses one set of names. Unmatched folders keep their genre,
+  translated to the same names; values that are not genres (`Germany`,
+  `Divers`) are dropped. Edit `GENRE_MAP` in the script to change the mapping.
+- **Discs**: only for folders with no disc tags whose track numbers repeat, and
+  only when every file is on the matched Deezer album; disc and track come from
+  Deezer's layout. Repeats on a single-disc album are duplicate copies and are
+  left alone.
+
+```bash
+tools/fix-from-deezer.py /mnt/servers/jellyfin/srv/music/library --report plan.json  # dry run
+tools/fix-from-deezer.py <library> --apply --jellyfin-url https://<host>
+tools/fix-from-deezer.py "<library>/Artist/Album" --apply --no-genres                # discs only
+tools/fix-from-deezer.py --undo deezer-undo.json
+```
+
+Deezer answers are cached in `deezer-cache.json`, so the `--apply` run after a
+dry run does not ask again. Writes are recorded in `deezer-undo.json` and
+verified exactly as `fix-disc-numbers.py` does.
 
 ## Filling missing artwork
 
