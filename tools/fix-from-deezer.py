@@ -44,13 +44,15 @@ import argparse
 import importlib.util
 import json
 import os
+import shutil
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
 from collections import Counter
+from dataclasses import dataclass, field, replace
 from difflib import SequenceMatcher
-from dataclasses import dataclass, field
 from pathlib import Path
 
 DEEZER = "https://api.deezer.com/"
@@ -372,7 +374,26 @@ def _restore(audio, k: str, snapshot: dict) -> None:
             audio.tags[key] = value
 
 
+OGG_EXTS = (".ogg", ".oga", ".opus")
+
+
 def write_file(f: FileTags, change: dict) -> dict:
+    if not f.path.lower().endswith(OGG_EXTS):
+        return _write_tags(f, change)
+    # Growing an Ogg tag shifts and renumbers every page after it; over sshfs that
+    # pass reads short data and leaves a broken tail. Edit a local copy instead.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        local = os.path.join(tmpdir, os.path.basename(f.path))
+        shutil.copyfile(f.path, local)
+        record = _write_tags(replace(f, path=local), change)
+        staged = f.path + ".tagging.tmp"
+        shutil.copyfile(local, staged)
+        os.replace(staged, f.path)
+    record["path"] = f.path
+    return record
+
+
+def _write_tags(f: FileTags, change: dict) -> dict:
     from mutagen import id3
     audio = discs._open(f.path)
     before = discs.audio_fingerprint(audio)
