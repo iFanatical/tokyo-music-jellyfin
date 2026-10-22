@@ -132,6 +132,21 @@ class WriteTests(unittest.TestCase):
             self.assertEqual((restored.genres, restored.disc, restored.track),
                              (["Alternatif et Indé"], None, 1))
 
+    def test_ogg_with_a_broken_tail_is_detected(self):
+        from mutagen.ogg import OggPage
+
+        def page(seq, last=False):
+            pg = OggPage()
+            pg.serial, pg.sequence, pg.packets, pg.last = 1, seq, [b"x" * 100], last
+            return pg.write()
+
+        with tempfile.TemporaryDirectory() as root:
+            good, bad = f"{root}/good.opus", f"{root}/bad.opus"
+            Path(good).write_bytes(page(0) + page(1, last=True))
+            Path(bad).write_bytes(page(0) + page(1) + page(2, last=True)[:40])
+            self.assertFalse(MODULE.ogg_tail_broken(good))
+            self.assertTrue(MODULE.ogg_tail_broken(bad))
+
 
 if __name__ == "__main__":
     unittest.main()

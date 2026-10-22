@@ -44,15 +44,13 @@ import argparse
 import importlib.util
 import json
 import os
-import shutil
 import sys
-import tempfile
 import time
 import urllib.error
 import urllib.request
 from collections import Counter
-from dataclasses import dataclass, field, replace
 from difflib import SequenceMatcher
+from dataclasses import dataclass, field
 from pathlib import Path
 
 DEEZER = "https://api.deezer.com/"
@@ -374,26 +372,24 @@ def _restore(audio, k: str, snapshot: dict) -> None:
             audio.tags[key] = value
 
 
-OGG_EXTS = (".ogg", ".oga", ".opus")
+def ogg_tail_broken(path: str) -> bool:
+    """Some downloaded Ogg files end in a partial page with no end-of-stream flag.
+    mutagen cannot save tags to them: it fails partway through the rewrite."""
+    if not path.lower().endswith((".ogg", ".oga", ".opus")):
+        return False
+    from mutagen.ogg import OggPage
+    last = None
+    with open(path, "rb") as fh:
+        while True:
+            try:
+                last = OggPage(fh)
+            except EOFError:
+                return last is None or not last.last
+            except Exception:  # noqa: BLE001
+                return True
 
 
 def write_file(f: FileTags, change: dict) -> dict:
-    if not f.path.lower().endswith(OGG_EXTS):
-        return _write_tags(f, change)
-    # Growing an Ogg tag shifts and renumbers every page after it; over sshfs that
-    # pass reads short data and leaves a broken tail. Edit a local copy instead.
-    with tempfile.TemporaryDirectory() as tmpdir:
-        local = os.path.join(tmpdir, os.path.basename(f.path))
-        shutil.copyfile(f.path, local)
-        record = _write_tags(replace(f, path=local), change)
-        staged = f.path + ".tagging.tmp"
-        shutil.copyfile(local, staged)
-        os.replace(staged, f.path)
-    record["path"] = f.path
-    return record
-
-
-def _write_tags(f: FileTags, change: dict) -> dict:
     from mutagen import id3
     audio = discs._open(f.path)
     before = discs.audio_fingerprint(audio)
@@ -535,7 +531,9 @@ def main() -> int:
     for p in plans:
         for f in p.files:
             change = file_changes(p, f, do_genres)
-            if change:
+            if change and ogg_tail_broken(f.path):
+                errors.append(f"{rel(f.path)}: Ogg file ends in a broken page; not tagged")
+            elif change:
                 changes.append((p, f, change))
 
     sources = Counter(p.genre_source or "none" for p in plans)
