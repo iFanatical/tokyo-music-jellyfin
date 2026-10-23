@@ -34,6 +34,8 @@ disc-number-undo.json
 disc-number-undo.json.tmp
 deezer-cache.json
 deezer-cache.json.tmp
+musicbrainz-cache.json
+musicbrainz-cache.json.tmp
 deezer-undo.json
 deezer-undo.json.tmp
 artwork-report.json

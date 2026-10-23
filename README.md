@@ -203,15 +203,25 @@ uses it only when that album holds most of the folder's ISRCs
   only when every file is on the matched Deezer album; disc and track come from
   Deezer's layout. Repeats on a single-disc album are duplicate copies and are
   left alone.
+- **Albums with no genre at all** (`--fill-missing`): take the genres the
+  artist's other albums have (the most common set; Various Artists excluded),
+  so run it on the whole library. Artists with no such album are looked up on
+  MusicBrainz, the album's release group first, then the artist, and its tags
+  are mapped onto Deezer's names through `MB_RULES`. `--no-musicbrainz` keeps
+  it to the library.
+- **Ogg files with a broken tail** (a partial last page, as some downloads
+  have) cannot be tagged; they are listed and skipped.
 
 ```bash
 tools/fix-from-deezer.py /mnt/servers/jellyfin/srv/music/library --report plan.json  # dry run
 tools/fix-from-deezer.py <library> --apply --jellyfin-url https://<host>
 tools/fix-from-deezer.py "<library>/Artist/Album" --apply --no-genres                # discs only
+tools/fix-from-deezer.py <library> --fill-missing --report plan.json                 # + artist/MusicBrainz
 tools/fix-from-deezer.py --undo deezer-undo.json
 ```
 
-Deezer answers are cached in `deezer-cache.json`, so the `--apply` run after a
+Deezer answers are cached in `deezer-cache.json` (MusicBrainz in
+`musicbrainz-cache.json`), so the `--apply` run after a
 dry run does not ask again. Writes are recorded in `deezer-undo.json` and
 verified exactly as `fix-disc-numbers.py` does.
 

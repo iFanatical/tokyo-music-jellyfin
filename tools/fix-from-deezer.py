@@ -24,6 +24,13 @@ WHAT IS WRITTEN
              repeat, and every file's ISRC is on the matched Deezer album:
              disc and track come from Deezer's disk_number/track_position.
 
+FILLING THE REST (--fill-missing)
+    Albums with no genre after that take the genres their artist's other
+    albums have (the most common set), which needs the whole library in one
+    run. Artists with no such album are looked up on MusicBrainz: the album's
+    release group by ISRC, else the artist, by ISRC or exact name. Its
+    community tags are mapped onto Deezer's names through MB_RULES.
+
 SAFETY
     Dry run unless --apply. Every write is recorded in the undo log, saved
     after each album, and --undo LOG restores the previous tags. Each file is
@@ -33,6 +40,7 @@ USAGE
     tools/fix-from-deezer.py /path/to/music                    # dry run
     tools/fix-from-deezer.py /path/to/music --apply --jellyfin-url URL
     tools/fix-from-deezer.py "Artist/Album" --apply --no-genres # discs only
+    tools/fix-from-deezer.py /path/to/music --fill-missing      # + artist/MusicBrainz
     tools/fix-from-deezer.py --undo deezer-undo.json
 
     Requires mutagen:  pip install mutagen  (a venv is fine)
@@ -47,6 +55,7 @@ import os
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections import Counter
 from difflib import SequenceMatcher
@@ -56,6 +65,38 @@ from pathlib import Path
 DEEZER = "https://api.deezer.com/"
 # Deezer allows 50 requests per 5 seconds.
 REQUEST_GAP = 0.11
+MUSICBRAINZ = "https://musicbrainz.org/ws/2/"
+# MusicBrainz allows one request per second and wants an identifying User-Agent.
+MB_GAP = 1.1
+MB_AGENT = "TokyoMusic/1.0 (https://github.com/iFanatical/tokyo-music-jellyfin)"
+VARIOUS = "various artists"
+
+# MusicBrainz genres are community tags ("pop punk", "praise & worship"). Each is
+# mapped to Deezer's names by the first rule whose keyword it contains, so the
+# more specific keywords come first. Tags no rule covers are dropped.
+MB_RULES = [
+    (("christian", "worship", "gospel", "ccm"), "Christian"),
+    (("soundtrack", "video game", "film score", "score"), "Films/Games"),
+    (("metal", "deathcore"), "Metal"),
+    (("hip hop", "hip-hop", "rap", "trap", "drill", "grime"), "Rap/Hip Hop"),
+    (("country", "americana", "bluegrass"), "Country"),
+    (("house", "techno"), "Techno/House"),
+    (("trance", "hardstyle", "hard dance", "eurodance"), "Dance"),
+    (("dubstep", "drum and bass", "electro", "edm", "electronic", "synth", "idm"), "Electro"),
+    (("dance", "disco"), "Dance"),
+    (("hard rock",), "Hard Rock"),
+    (("punk", "emo", "post-hardcore", "hardcore", "alternative", "indie", "grunge",
+      "shoegaze"), "Alternative"),
+    (("r&b", "rhythm and blues", "soul", "funk"), "R&B"),
+    (("rock",), "Rock"),
+    (("pop",), "Pop"),
+    (("folk", "singer-songwriter"), "Folk"),
+    (("jazz", "swing"), "Jazz"),
+    (("blues",), "Blues"),
+    (("classical", "orchestral", "opera"), "Classical"),
+    (("reggae", "ska"), "Reggae"),
+    (("latin", "reggaeton", "salsa"), "Latin"),
+]
 
 # Store genre names (Qobuz, in English and French) -> Deezer's names. None drops
 # a value that is not a genre. Anything not listed is kept as it is.
@@ -223,6 +264,30 @@ class Deezer:
         return info
 
 
+class MusicBrainz(Deezer):
+    """The same cache and pacing, against the MusicBrainz web service."""
+
+    def _http(self, path: str):
+        sep = "&" if "?" in path else "?"
+        req = urllib.request.Request(f"{MUSICBRAINZ}{path}{sep}fmt=json",
+                                     headers={"User-Agent": MB_AGENT})
+        for attempt in range(5):
+            wait = self._last + MB_GAP - time.monotonic()
+            if wait > 0:
+                time.sleep(wait)
+            self._last = time.monotonic()
+            try:
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    return json.load(resp)
+            except urllib.error.HTTPError as exc:
+                if exc.code in (400, 404):
+                    return {"error": exc.code}
+                time.sleep(5 * (attempt + 1))  # 503: over the rate limit
+            except (urllib.error.URLError, TimeoutError):
+                time.sleep(2 * (attempt + 1))
+        raise RuntimeError(f"MusicBrainz did not answer: {path}")
+
+
 @dataclass
 class AlbumPlan:
     folder: str
@@ -230,7 +295,7 @@ class AlbumPlan:
     match: dict | None = None
     coverage: float = 0.0
     genres: list[str] = field(default_factory=list)
-    genre_source: str = ""  # deezer | translated | ""
+    genre_source: str = ""  # deezer | translated | artist | musicbrainz-album/-artist | ""
     discs: dict = field(default_factory=dict)  # path -> (disc, track, total)
     note: str = ""
 
@@ -273,6 +338,85 @@ def translate(genres: list[str]) -> list[str]:
         if g and g not in out:
             out.append(g)
     return out
+
+
+def folder_artist(folder: str) -> str:
+    return os.path.basename(os.path.dirname(folder))
+
+
+def artist_genres(plans: list[AlbumPlan]) -> dict[str, list[str]]:
+    """Each artist's most common genre list among the albums that have one."""
+    seen: dict[str, Counter] = {}
+    for p in plans:
+        artist = folder_artist(p.folder).lower()
+        if p.genre_source in ("deezer", "translated") and artist != VARIOUS:
+            seen.setdefault(artist, Counter())[tuple(p.genres)] += 1
+    return {a: list(c.most_common(1)[0][0]) for a, c in seen.items()}
+
+
+def map_mb_genres(tags: list[dict], limit: int = 3) -> list[str]:
+    """Most-voted MusicBrainz genres -> Deezer names. Tags with under a third of
+    the top tag's votes are ignored, so one stray vote does not add a genre."""
+    tags = sorted(tags, key=lambda t: -t.get("count", 0))
+    if not tags:
+        return []
+    floor = max(1, tags[0].get("count", 0)) / 3
+    out = []
+    for t in tags:
+        if t.get("count", 0) < floor:
+            break
+        name = t["name"].lower()
+        mapped = next((g for keys, g in MB_RULES if any(k in name for k in keys)), None)
+        if mapped and mapped not in out:
+            out.append(mapped)
+    return out[:limit]
+
+
+def mb_genres(mb: MusicBrainz, folder: str, files: list[FileTags],
+              samples: int = 3) -> tuple[list[str], str]:
+    """Album genres from MusicBrainz, else the artist's. Recordings are found by
+    ISRC; without one, the folder's artist is looked up by exact name."""
+    group_ids, artist_ids = [], []
+    for isrc in list(dict.fromkeys(f.isrc for f in files if f.isrc))[:samples]:
+        for rec in mb.get(f"isrc/{isrc}?inc=releases+artists").get("recordings", []):
+            for credit in rec.get("artist-credit", [])[:1]:
+                artist_ids.append(credit["artist"]["id"])
+            for rel in rec.get("releases", [])[:1]:
+                group = mb.get(f"release/{rel['id']}?inc=release-groups").get("release-group")
+                if group:
+                    group_ids.append(group["id"])
+    for gid in dict.fromkeys(group_ids):
+        genres = map_mb_genres(mb.get(f"release-group/{gid}?inc=genres").get("genres", []))
+        if genres:
+            return genres, "album"
+    artist = folder_artist(folder)
+    if not artist_ids and artist.lower() != VARIOUS:
+        query = urllib.parse.quote(f'artist:"{artist}"')
+        for a in mb.get(f"artist?query={query}&limit=5").get("artists", []):
+            if a.get("score") == 100 and a["name"].lower() == artist.lower():
+                artist_ids.append(a["id"])
+                break
+    for aid in dict.fromkeys(artist_ids):
+        genres = map_mb_genres(mb.get(f"artist/{aid}?inc=genres").get("genres", []))
+        if genres:
+            return genres, "artist"
+    return [], ""
+
+
+def fill_missing_genres(plans: list[AlbumPlan], mb: MusicBrainz | None) -> None:
+    """Albums neither Deezer nor their own tags could name: take the artist's
+    genres from their other albums, else ask MusicBrainz."""
+    by_artist = artist_genres(plans)
+    for p in plans:
+        if p.genre_source:
+            continue
+        inherited = by_artist.get(folder_artist(p.folder).lower())
+        if inherited:
+            p.genres, p.genre_source = inherited, "artist"
+        elif mb is not None:
+            p.genres, level = mb_genres(mb, p.folder, p.files)
+            if p.genres:
+                p.genre_source = f"musicbrainz-{level}"
 
 
 def needs_discs(files: list[FileTags]) -> bool:
@@ -480,6 +624,13 @@ def main() -> int:
                     help="share of a folder's ISRCs the Deezer album must hold (default: %(default)s)")
     ap.add_argument("--cache", default="deezer-cache.json",
                     help="Deezer response cache (default: %(default)s)")
+    ap.add_argument("--fill-missing", action="store_true",
+                    help="albums with no genre at all take the artist's genres from their "
+                         "other albums, else MusicBrainz's (scan the whole library for this)")
+    ap.add_argument("--no-musicbrainz", action="store_true",
+                    help="with --fill-missing, only borrow genres from the artist's other albums")
+    ap.add_argument("--mb-cache", default="musicbrainz-cache.json",
+                    help="MusicBrainz response cache (default: %(default)s)")
     ap.add_argument("--report", help="also write the full plan as JSON here")
     ap.add_argument("--undo-log", default="deezer-undo.json",
                     help="where to record writes (default: %(default)s); appended to if it exists")
@@ -526,6 +677,14 @@ def main() -> int:
                 print(f"  ...{n} matched", file=sys.stderr, flush=True)
     finally:
         dz.save()
+    if do_genres and args.fill_missing:
+        mb = MusicBrainz(args.mb_cache) if not args.no_musicbrainz else None
+        print("  filling genres for unmatched albums", flush=True)
+        try:
+            fill_missing_genres(plans, mb)
+        finally:
+            if mb:
+                mb.save()
 
     changes = []  # (plan, file, change)
     for p in plans:

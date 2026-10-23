@@ -108,6 +108,55 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(calls, ["track/isrc:A"])
 
 
+class FillMissingTests(unittest.TestCase):
+    def plan(self, folder, genres=(), source=""):
+        p = MODULE.AlbumPlan(folder, [tags("a", "")])
+        p.genres, p.genre_source = list(genres), source
+        return p
+
+    def test_artist_genres_come_from_their_other_albums(self):
+        plans = [self.plan("/l/Metallica/Load", ["Rock", "Metal"], "deezer"),
+                 self.plan("/l/Metallica/Reload", ["Rock", "Metal"], "deezer"),
+                 self.plan("/l/Metallica/Garage", ["Metal"], "deezer"),
+                 self.plan("/l/Metallica/St. Anger")]
+        MODULE.fill_missing_genres(plans, None)
+        self.assertEqual((plans[3].genres, plans[3].genre_source), (["Rock", "Metal"], "artist"))
+
+    def test_various_artists_do_not_share_genres(self):
+        plans = [self.plan("/l/Various Artists/Halo", ["Films/Games"], "deezer"),
+                 self.plan("/l/Various Artists/Hits")]
+        MODULE.fill_missing_genres(plans, None)
+        self.assertEqual(plans[1].genres, [])
+
+    def test_musicbrainz_tags_map_to_deezer_names(self):
+        tags_ = [{"name": "contemporary christian", "count": 6}, {"name": "pop rock", "count": 4},
+                 {"name": "praise & worship", "count": 3}, {"name": "polka", "count": 1}]
+        self.assertEqual(MODULE.map_mb_genres(tags_), ["Christian", "Rock"])
+
+    def test_musicbrainz_prefers_the_release_group(self):
+        responses = {
+            "isrc/X?inc=releases+artists": {"recordings": [
+                {"artist-credit": [{"artist": {"id": "art"}}], "releases": [{"id": "rel"}]}]},
+            "release/rel?inc=release-groups": {"release-group": {"id": "rg"}},
+            "release-group/rg?inc=genres": {"genres": [{"name": "pop punk", "count": 3}]},
+            "artist/art?inc=genres": {"genres": [{"name": "rock", "count": 9}]},
+        }
+        mb = MODULE.MusicBrainz(None, fetch=lambda path: responses.get(path, {}))
+        genres, level = MODULE.mb_genres(mb, "/l/Band/Album", [tags("a", "X")])
+        self.assertEqual((genres, level), (["Alternative"], "album"))
+
+    def test_musicbrainz_falls_back_to_an_exact_artist_name(self):
+        responses = {
+            'artist?query=artist%3A%22Koe%20Wetzel%22&limit=5': {"artists": [
+                {"score": 100, "name": "Koe Wetzel", "id": "kw"}]},
+            "artist/kw?inc=genres": {"genres": [{"name": "country", "count": 2},
+                                                {"name": "red dirt", "count": 1}]},
+        }
+        mb = MODULE.MusicBrainz(None, fetch=lambda path: responses.get(path, {}))
+        self.assertEqual(MODULE.mb_genres(mb, "/l/Koe Wetzel/Sellout", [tags("a", "")]),
+                         (["Country"], "artist"))
+
+
 @unittest.skipUnless(HAVE_MUTAGEN, "mutagen not installed")
 class WriteTests(unittest.TestCase):
     def test_write_verify_and_undo(self):
