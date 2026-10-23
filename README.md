@@ -111,13 +111,55 @@ does for a public copy on `:444`. `deploy.sh` copies it and never deletes a
 | `serve.py` | Static server |
 | `deploy/` | systemd unit template and install scripts |
 | `tools/` | import and tag maintenance scripts |
+| `bin/tokyo-music` | runs `tools/tokyo-music.py` with the project venv; symlink it into `PATH` |
 | `tests/` | `make test` runs everything; browser tests skip without Chromium |
 
 Everything is audio-scoped at the API layer: queries are restricted to
 `MusicAlbum` / `MusicArtist` / `Audio` and to your music libraries, and
 playlists are filtered to `MediaType: Audio`. Video cannot appear.
 
-## Importing new music
+## Getting new music in (`tokyo-music`)
+
+`tokyo-music` runs the whole path from an artist list to the library, with the
+library clean-up tools applied on the way in. Link it once:
+
+```bash
+ln -s "$PWD/bin/tokyo-music" ~/.local/bin/tokyo-music
+```
+
+```bash
+# 1. Add Amazon artist URLs to ~/Downloads/downloaded-music/ripped/artists.txt
+tokyo-music discover          # one list per artist in album-lists/, titles as comments
+#    Review the lists: releases flagged "ALTERNATE EDITION" are the same album
+#    in another edition; delete the lines you don't want.
+tokyo-music download          # lucida fetches every list into move/
+tokyo-music download --retry  # only what the last run failed
+tokyo-music import            # dry run: repairs, genres, discs, destinations
+tokyo-music import --apply    # write tags, copy into the library, clean up move/
+```
+
+- **discover** names each list after the artist's Amazon ID, so re-running it
+  only discovers new artists (`--refresh` redoes existing ones;
+  `--all-releases` adds EPs and singles).
+- **download** needs lucida.to's Cloudflare `cf_clearance` cookie and the
+  User-Agent it was issued to. The cookie is read from your Firefox profile, so
+  when it has expired, visit https://lucida.to in Firefox and run the command
+  again; the User-Agent is derived from `firefox --version` unless
+  `user_agent` is set in the config. Lists are archived after a clean run.
+- **import** repairs Ogg files with a broken last page, sets genres and box-set
+  disc numbers from Deezer (gaps filled from the artist's albums in Jellyfin,
+  then MusicBrainz), warns about folders holding two editions, and then runs
+  `import-music.py` with the settled artist spellings
+  (`tools/artist-canonical.json` merged with `~/.config/tokyo-music/canonical.json`).
+  Covers and lyrics are copied with the audio, albums already in the library
+  are skipped and left in `move/`, Jellyfin rescans, and emptied folders and
+  lucida reports are cleared from `move/`. Tag writes are logged under
+  `~/.config/tokyo-music/import-undo/` for `fix-from-deezer.py --undo`.
+
+Paths and the Jellyfin URL can be changed in `~/.config/tokyo-music/config.json`;
+the keys are listed at the top of `tools/tokyo-music.py`.
+
+## Importing new music (`tools/import-music.py`)
 
 `tools/import-music.py` provides a repeatable inbox-to-library workflow. It
 reads embedded tags, normalises conservative multi-artist conventions, rejects
@@ -148,7 +190,9 @@ The library defaults to `/mnt/servers/jellyfin/srv/music/library`; override it
 with `--library`. Add `--move` only when you want successfully verified source
 files removed. Existing destinations, filename collisions, unreadable files,
 and missing `ARTIST`, `ALBUM`, or `TITLE` tags abort the whole import before it
-writes anything. Use `--canonical canonical.json` for established spelling
+writes anything; with `--skip-existing`, albums already in the library are
+skipped instead. Covers (`cover.jpg`, `folder.jpg`) and per-track lyrics
+(`.lrc`) are copied along with the audio. Use `--canonical canonical.json` for established spelling
 corrections and `--fix-encoding` for the same conservative encoding repair as
 the maintenance tool.
 

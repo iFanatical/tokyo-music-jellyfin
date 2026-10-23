@@ -56,6 +56,12 @@ class PlanTests(unittest.TestCase):
         plan = MODULE.plan_album(dz, "/a", files, 0.8, True, True)
         self.assertEqual((plan.genres, plan.genre_source), (["Alternative"], "translated"))
 
+    def test_one_tagged_stray_does_not_match_an_untagged_folder(self):
+        dz, _ = fake_deezer({9: (["Rock"], [("A", 1, 1)])}, {"A": 9})
+        files = [tags("stray", "A")] + [tags(f"u{n}", "", track=n) for n in range(2, 10)]
+        plan = MODULE.plan_album(dz, "/a", files, 0.8, True, True)
+        self.assertNotEqual(plan.genre_source, "deezer")
+
     def test_non_genres_are_dropped(self):
         self.assertEqual(MODULE.translate(["Germany", "Allemagne", "Pop", "Pop/Rock"]), ["Pop", "Rock"])
 

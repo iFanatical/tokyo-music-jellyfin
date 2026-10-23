@@ -301,10 +301,14 @@ class AlbumPlan:
 
 
 def coverage(files: list[FileTags], album: dict) -> float:
+    """Share of the folder's recordings on the album. Files without an ISRC count
+    as misses, so one tagged stray cannot decide a folder of untagged files."""
     isrcs = {f.isrc for f in files if f.isrc}
     if not isrcs:
         return 0.0
-    return len(isrcs & {t.get("isrc", "").upper() for t in album["track_list"]}) / len(isrcs)
+    untagged = sum(1 for f in files if not f.isrc)
+    hits = len(isrcs & {t.get("isrc", "").upper() for t in album["track_list"]})
+    return hits / (len(isrcs) + untagged)
 
 
 def find_album(dz: Deezer, files: list[FileTags], samples: int = 3) -> tuple[dict | None, float]:
@@ -405,10 +409,12 @@ def mb_genres(mb: MusicBrainz, folder: str, files: list[FileTags],
     return [], ""
 
 
-def fill_missing_genres(plans: list[AlbumPlan], mb: MusicBrainz | None) -> None:
+def fill_missing_genres(plans: list[AlbumPlan], mb: MusicBrainz | None,
+                        known: dict[str, list[str]] | None = None) -> None:
     """Albums neither Deezer nor their own tags could name: take the artist's
-    genres from their other albums, else ask MusicBrainz."""
-    by_artist = artist_genres(plans)
+    genres from their other albums, else ask MusicBrainz. `known` adds artists
+    (lowercased) whose albums are not part of this run, e.g. from Jellyfin."""
+    by_artist = {**(known or {}), **artist_genres(plans)}
     for p in plans:
         if p.genre_source:
             continue
@@ -533,6 +539,49 @@ def ogg_tail_broken(path: str) -> bool:
                 return last is None or not last.last
             except Exception:  # noqa: BLE001
                 return True
+
+
+def repair_ogg_tail(path: str) -> int:
+    """Drop the partial page after an Ogg file's last complete page and mark that
+    page end-of-stream. The audio pages are rewritten unchanged. Refuses (raises)
+    when pages are out of sequence or another page hides in the leftover bytes.
+    Returns the number of bytes dropped."""
+    from mutagen.ogg import OggPage
+    size = os.path.getsize(path)
+    pages, expected = [], {}
+    with open(path, "rb") as fh:
+        while True:
+            pos = fh.tell()
+            try:
+                page = OggPage(fh)
+            except EOFError:
+                pos = size
+                break
+            except Exception:  # noqa: BLE001
+                break
+            if page.sequence != expected.get(page.serial, 0):
+                raise ValueError(f"{path}: Ogg pages out of sequence; not repairing")
+            expected[page.serial] = page.sequence + 1
+            pages.append(page)
+        fh.seek(pos)
+        tail = fh.read()
+    if not pages:
+        raise ValueError(f"{path}: no Ogg pages")
+    if b"OggS" in tail[1:]:
+        raise ValueError(f"{path}: another page inside the broken tail; not repairing")
+    pages[-1].last = True
+    staged = path + ".repair.tmp"
+    with open(staged, "wb") as fh:
+        for page in pages:
+            fh.write(page.write())
+    try:
+        if ogg_tail_broken(staged):
+            raise ValueError(f"{path}: repair did not produce a clean file")
+        os.replace(staged, path)
+    finally:
+        if os.path.exists(staged):
+            os.remove(staged)
+    return size - pos
 
 
 def write_file(f: FileTags, change: dict) -> dict:

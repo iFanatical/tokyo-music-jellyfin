@@ -25,6 +25,9 @@ from pathlib import Path
 _tag_tool = None
 _disc_tool = None
 AUDIO_EXTS = {"flac", "mp3", "m4a", "mp4", "ogg", "oga", "opus", "wma"}
+# Album artwork copied along with an album's audio; lyrics travel per track.
+COVER_NAMES = {"cover.jpg", "cover.png", "folder.jpg", "folder.png"}
+LYRIC_EXTS = (".lrc", ".elrc", ".txt")
 UNSAFE_MULTIVALUE = {"wma"}
 
 
@@ -64,6 +67,7 @@ class ImportItem:
     destination: Path | None = None
     track: int | None = None
     disc: int | None = None
+    skipped: bool = False  # album already in the library (--skip-existing)
 
 
 CONTROL_RX = re.compile(r"[\x00-\x1f\x7f]")
@@ -118,8 +122,11 @@ def scan_source(source: Path, canonical, fix_encoding: bool) -> tuple[list[Impor
     return items, errors
 
 
-def assign_destinations(items: list[ImportItem], library: Path, compilation_artist: str) -> list[str]:
-    """Choose folders, recognizing tag-empty multi-artist compilations."""
+def assign_destinations(items: list[ImportItem], library: Path, compilation_artist: str,
+                        skip_existing: bool = False) -> list[str]:
+    """Choose folders, recognizing tag-empty multi-artist compilations. With
+    skip_existing, an album with any file already in the library is marked
+    skipped as a whole instead of refusing the import."""
     album_groups: dict[tuple[Path, str], list[ImportItem]] = {}
     for item in items:
         # Source folder is part of the key so two artists importing albums with
@@ -154,9 +161,44 @@ def assign_destinations(items: list[ImportItem], library: Path, compilation_arti
                 errors.append(f"destination collision: {claimed[key]} and {item.source} -> {dest}")
             else:
                 claimed[key] = item.source
-            if dest.exists():
+            if dest.exists() and skip_existing:
+                for other in group:
+                    other.skipped = True
+            elif dest.exists():
                 errors.append(f"destination already exists: {dest}")
     return errors
+
+
+def sidecars(items: list[ImportItem]) -> list[tuple[Path, Path]]:
+    """(source, destination) for covers and lyrics next to the imported audio.
+    Existing files in the library are left alone."""
+    out, seen = [], set()
+    for item in items:
+        if item.skipped or item.destination is None:
+            continue
+        folder, dest_dir = item.source.parent, item.destination.parent
+        if folder not in seen:
+            seen.add(folder)
+            for path in sorted(folder.iterdir()):
+                if path.is_file() and path.name.lower() in COVER_NAMES:
+                    out.append((path, dest_dir / path.name))
+        for ext in LYRIC_EXTS:
+            lyric = item.source.with_suffix(ext)
+            if lyric.is_file():
+                out.append((lyric, item.destination.with_suffix(ext)))
+    return [(src, dst) for src, dst in out if not dst.exists()]
+
+
+def copy_sidecar(src: Path, dest: Path) -> None:
+    temp = dest.parent / f".{dest.name}.tokyo-import-{uuid.uuid4().hex}.tmp"
+    try:
+        shutil.copy2(src, temp)
+        if temp.stat().st_size != src.stat().st_size:
+            raise RuntimeError(f"{src}: copy is incomplete")
+        os.replace(temp, dest)
+    finally:
+        if temp.exists():
+            temp.unlink()
 
 
 def disc_number_warnings(items: list[ImportItem]) -> list[str]:
@@ -222,7 +264,7 @@ def scan_jellyfin(base: str, token: str) -> None:
         pass
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Import tagged audio into Artist/Album folders")
     ap.add_argument("source", help="inbox directory containing new audio")
     ap.add_argument("--library", default="/mnt/servers/jellyfin/srv/music/library")
@@ -231,10 +273,12 @@ def main() -> int:
     ap.add_argument("--canonical", help="JSON map of settled artist spellings")
     ap.add_argument("--fix-encoding", action="store_true")
     ap.add_argument("--compilation-artist", default="Various Artists")
+    ap.add_argument("--skip-existing", action="store_true",
+                    help="skip albums already in the library instead of refusing the import")
     ap.add_argument("--jellyfin-url", help="trigger a scan after a successful import")
     ap.add_argument("--token-env", default="JELLYFIN_TOKEN",
                     help="environment variable holding the Jellyfin token")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     source, library = Path(args.source).resolve(), Path(args.library).resolve()
     if not source.is_dir():
@@ -254,11 +298,21 @@ def main() -> int:
             ap.error("--canonical must contain a JSON object of string pairs")
 
     items, errors = scan_source(source, canonical, args.fix_encoding)
-    errors.extend(assign_destinations(items, library, args.compilation_artist))
+    errors.extend(assign_destinations(items, library, args.compilation_artist, args.skip_existing))
+    skipped = [i for i in items if i.skipped]
+    items = [i for i in items if not i.skipped]
     print(f"Found {len(items)} importable audio file(s).")
     for item in items:
         if item.destination:
             print(f"  {item.source.relative_to(source)} -> {item.destination.relative_to(library)}")
+    if skipped:
+        albums = sorted({str(i.source.parent.relative_to(source)) for i in skipped})
+        print(f"\nSkipping {len(albums)} album(s) already in the library (left in {source}):")
+        for album in albums:
+            print(f"  {album}")
+    extras = sidecars(items)
+    if extras:
+        print(f"\nAlso copying {len(extras)} cover/lyric file(s).")
     warnings = disc_number_warnings(items)
     if warnings:
         print(f"\nWarning: {len(warnings)} album(s) will play out of order in Jellyfin:")
@@ -273,11 +327,14 @@ def main() -> int:
         print("\nDry run — nothing written. Re-run with --apply after reviewing this plan.")
         return 0
 
-    completed = []
+    completed, copied_extras = [], []
     try:
         for item in items:
             copy_one(item)
             completed.append(item)
+        for src, dest in extras:
+            copy_sidecar(src, dest)
+            copied_extras.append(src)
     except Exception as exc:  # noqa: BLE001
         print(f"error: import stopped after {len(completed)} file(s): {exc}", file=sys.stderr)
         return 1
@@ -285,6 +342,8 @@ def main() -> int:
     if args.move:
         for item in completed:
             item.source.unlink()
+        for src in copied_extras:
+            src.unlink()
     if args.jellyfin_url:
         token = os.environ.get(args.token_env)
         if not token:

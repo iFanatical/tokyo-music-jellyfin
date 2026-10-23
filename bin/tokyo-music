@@ -1,0 +1,4 @@
+#!/bin/sh
+# Run tokyo-music with the project's virtualenv, from anywhere (symlink it into PATH).
+here=$(dirname "$(readlink -f "$0")")
+exec "$here/../.venv/bin/python" "$here/../tools/tokyo-music.py" "$@"
