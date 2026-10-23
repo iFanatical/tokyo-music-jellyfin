@@ -62,6 +62,10 @@ class PlanTests(unittest.TestCase):
         plan = MODULE.plan_album(dz, "/a", files, 0.8, True, True)
         self.assertNotEqual(plan.genre_source, "deezer")
 
+    def test_deezer_names_survive_a_second_run(self):
+        self.assertEqual(MODULE.translate(["Christian", "Gospel"]), ["Christian", "Gospel"])
+        self.assertEqual(MODULE.translate(["Rock", "Hard Rock", "Metal"]), ["Rock", "Hard Rock", "Metal"])
+
     def test_non_genres_are_dropped(self):
         self.assertEqual(MODULE.translate(["Germany", "Allemagne", "Pop", "Pop/Rock"]), ["Pop", "Rock"])
 

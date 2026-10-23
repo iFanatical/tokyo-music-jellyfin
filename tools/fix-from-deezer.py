@@ -99,16 +99,16 @@ MB_RULES = [
 ]
 
 # Store genre names (Qobuz, in English and French) -> Deezer's names. None drops
-# a value that is not a genre. Anything not listed is kept as it is.
+# a value that is not a genre. Anything not listed is kept as it is, and names
+# Deezer itself uses ("Gospel", "Hard Rock", "Trance") must not be listed, or a
+# second run would rewrite genres the first run took from Deezer.
 GENRE_MAP = {
     "Alternative & Indie": "Alternative",
     "Alternatif et Indé": "Alternative",
-    "Gospel": "Christian",
     "Religious": "Christian",
     "Hip-Hop/Rap": "Rap/Hip Hop",
     "Electronic": "Electro",
     "Électronique": "Electro",
-    "Trance": "Electro",
     "House": "Electro",
     "Drum & Bass": "Electro",
     "Ambient": "Electro",
@@ -116,7 +116,6 @@ GENRE_MAP = {
     "Lounge": "Electro",
     "Experimental": "Electro",
     "Pop/Rock": "Rock",
-    "Hard Rock": "Rock",
     "Punk / New Wave": "Rock",
     "Punk - New Wave": "Rock",
     "Rock progressif": "Rock",
