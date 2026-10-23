@@ -390,7 +390,9 @@ def mb_genres(mb: MusicBrainz, folder: str, files: list[FileTags],
         if genres:
             return genres, "album"
     artist = folder_artist(folder)
-    if not artist_ids and artist.lower() != VARIOUS:
+    if artist.lower() == VARIOUS:
+        return [], ""  # the track artists' genres say nothing about a compilation
+    if not artist_ids:
         query = urllib.parse.quote(f'artist:"{artist}"')
         for a in mb.get(f"artist?query={query}&limit=5").get("artists", []):
             if a.get("score") == 100 and a["name"].lower() == artist.lower():

@@ -145,6 +145,16 @@ class FillMissingTests(unittest.TestCase):
         genres, level = MODULE.mb_genres(mb, "/l/Band/Album", [tags("a", "X")])
         self.assertEqual((genres, level), (["Alternative"], "album"))
 
+    def test_compilations_do_not_take_track_artist_genres(self):
+        responses = {
+            "isrc/X?inc=releases+artists": {"recordings": [
+                {"artist-credit": [{"artist": {"id": "art"}}], "releases": []}]},
+            "artist/art?inc=genres": {"genres": [{"name": "nu metal", "count": 9}]},
+        }
+        mb = MODULE.MusicBrainz(None, fetch=lambda path: responses.get(path, {}))
+        self.assertEqual(MODULE.mb_genres(mb, "/l/Various Artists/Halo 2", [tags("a", "X")]),
+                         ([], ""))
+
     def test_musicbrainz_falls_back_to_an_exact_artist_name(self):
         responses = {
             'artist?query=artist%3A%22Koe%20Wetzel%22&limit=5': {"artists": [
