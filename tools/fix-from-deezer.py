@@ -421,7 +421,11 @@ def fill_missing_genres(plans: list[AlbumPlan], mb: MusicBrainz | None,
         if inherited:
             p.genres, p.genre_source = inherited, "artist"
         elif mb is not None:
-            p.genres, level = mb_genres(mb, p.folder, p.files)
+            try:
+                p.genres, level = mb_genres(mb, p.folder, p.files)
+            except RuntimeError:  # MusicBrainz is down: leave this album for a later run
+                p.note = "; ".join(filter(None, [p.note, "MusicBrainz did not answer, no genre yet"]))
+                continue
             if p.genres:
                 p.genre_source = f"musicbrainz-{level}"
 

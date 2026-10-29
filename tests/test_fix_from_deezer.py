@@ -138,6 +138,16 @@ class FillMissingTests(unittest.TestCase):
         MODULE.fill_missing_genres(plans, None)
         self.assertEqual(plans[1].genres, [])
 
+    def test_musicbrainz_outage_skips_the_album_instead_of_failing(self):
+        class DownMB:
+            def get(self, path):
+                raise RuntimeError(f"MusicBrainz did not answer: {path}")
+        plans = [self.plan("/l/Valkyrik/Album"), self.plan("/l/Other/Album", ["Rock"], "deezer")]
+        MODULE.fill_missing_genres(plans, DownMB())
+        self.assertEqual(plans[0].genres, [])
+        self.assertIn("MusicBrainz did not answer", plans[0].note)
+        self.assertEqual(plans[1].genres, ["Rock"])
+
     def test_musicbrainz_tags_map_to_deezer_names(self):
         tags_ = [{"name": "contemporary christian", "count": 6}, {"name": "pop rock", "count": 4},
                  {"name": "praise & worship", "count": 3}, {"name": "polka", "count": 1}]
