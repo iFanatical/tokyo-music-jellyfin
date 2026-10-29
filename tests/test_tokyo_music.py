@@ -171,6 +171,34 @@ class SidecarTests(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_MUTAGEN, "mutagen not installed")
+class DryRunOrderTests(unittest.TestCase):
+    def test_planned_disc_fixes_silence_the_order_warning(self):
+        import contextlib
+        import io
+        from mutagen.flac import FLAC
+        with tempfile.TemporaryDirectory() as root:
+            album = Path(root, "in", "Artist", "Album")
+            album.mkdir(parents=True)
+            paths = [album / f"{n}.flac" for n in ("a", "b")]
+            for n, path in enumerate(paths):
+                make_flac(str(path), track=1)
+                f = FLAC(str(path))
+                f["artist"], f["albumartist"], f["album"], f["title"] = "Artist", "Artist", "Album", f"T{n}"
+                f.save()
+            argv = [str(Path(root, "in")), "--library", str(Path(root, "lib"))]
+
+            def run(planned=None):
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    self.assertEqual(IMPORT.main(argv, planned), 0)
+                return out.getvalue()
+
+            self.assertIn("play out of order", run())
+            planned = {str(p.resolve()): (disc, 1) for disc, p in enumerate(paths, 1)}
+            self.assertNotIn("play out of order", run(planned))
+
+
+@unittest.skipUnless(HAVE_MUTAGEN, "mutagen not installed")
 class OggRepairTests(unittest.TestCase):
     def page(self, seq, last=False):
         from mutagen.ogg import OggPage

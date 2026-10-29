@@ -264,7 +264,10 @@ def scan_jellyfin(base: str, token: str) -> None:
         pass
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None,
+         planned_numbers: dict[str, tuple[int, int]] | None = None) -> int:
+    """`planned_numbers` maps a source path to the (disc, track) a caller is about
+    to write, so a dry run warns about the numbering the import will really get."""
     ap = argparse.ArgumentParser(description="Import tagged audio into Artist/Album folders")
     ap.add_argument("source", help="inbox directory containing new audio")
     ap.add_argument("--library", default="/mnt/servers/jellyfin/srv/music/library")
@@ -298,6 +301,9 @@ def main(argv: list[str] | None = None) -> int:
             ap.error("--canonical must contain a JSON object of string pairs")
 
     items, errors = scan_source(source, canonical, args.fix_encoding)
+    for item in items:
+        if planned := (planned_numbers or {}).get(str(item.source.resolve())):
+            item.disc, item.track = planned
     errors.extend(assign_destinations(items, library, args.compilation_artist, args.skip_existing))
     skipped = [i for i in items if i.skipped]
     items = [i for i in items if not i.skipped]

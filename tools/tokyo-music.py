@@ -462,7 +462,10 @@ def cmd_import(cfg: dict, args) -> int:
             argv += ["--jellyfin-url", cfg["jellyfin_url"]]
     print()
     try:
-        code = load_tool("import-music.py", "tokyo_import").main(argv)
+        # A dry run has not written the disc fixes yet; let the order check see them.
+        planned = {str(Path(path).resolve()): (disc, track)
+                   for p in plans for path, (disc, track, _) in p.discs.items()}
+        code = load_tool("import-music.py", "tokyo_import").main(argv, planned)
     finally:
         os.remove(canon_path)
 
